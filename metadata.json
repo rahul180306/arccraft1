@@ -1,0 +1,6 @@
+{
+  "name": "ArcCraft - Police Investigation Copilot",
+  "description": "AI-Powered Police Decision Support & Investigation System for Karnataka Police Department",
+  "requestFramePermissions": ["microphone", "camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

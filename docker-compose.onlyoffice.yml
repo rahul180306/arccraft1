@@ -1,0 +1,35 @@
+version: '3'
+services:
+  onlyoffice-documentserver:
+    image: onlyoffice/documentserver:latest
+    container_name: onlyoffice-documentserver
+    depends_on:
+      - postgresql
+      - rabbitmq
+    environment:
+      - DB_TYPE=postgres
+      - DB_HOST=postgresql
+      - DB_PORT=5432
+      - DB_NAME=onlyoffice
+      - DB_USER=onlyoffice
+      - AMQP_URI=amqp://guest:guest@rabbitmq
+      - JWT_SECRET=my_jwt_secret
+      - JWT_ENABLED=false
+    ports:
+      - '8080:80'
+    restart: always
+
+  rabbitmq:
+    image: rabbitmq:management
+    container_name: rabbitmq
+    restart: always
+
+  postgresql:
+    image: postgres:14
+    container_name: postgresql
+    environment:
+      - POSTGRES_DB=onlyoffice
+      - POSTGRES_USER=onlyoffice
+      - POSTGRES_PASSWORD=onlyoffice
+      - POSTGRES_HOST_AUTH_METHOD=trust
+    restart: always
