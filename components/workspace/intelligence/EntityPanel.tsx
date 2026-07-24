@@ -7,7 +7,10 @@ import {
   Shield, AlertTriangle, ChevronRight, ExternalLink, Clock, Link2,
   Fingerprint, Camera, FileCheck, Zap, Hash
 } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import { CyNode } from './CytoscapeGraph';
+
+const Plot = dynamic(() => import('react-plotly.js'), { ssr: false });
 
 interface EntityPanelProps {
   node: CyNode | null;
@@ -148,13 +151,37 @@ export default function EntityPanel({ node, onClose, isDarkMode, onOpenTimeline,
               </div>
             )}
 
-            {/* Notes */}
-            {node.details?.notes && (
-              <div className={`p-3 rounded-xl border ${subCardBg}`}>
-                <div className={`text-[10px] font-black uppercase tracking-wider mb-2 ${textSub}`}>Intelligence Note</div>
-                <p className={`text-[10px] font-medium leading-relaxed ${textPrimary}`}>{node.details.notes}</p>
+            {/* Plotly Mini Analytics Breakdown */}
+            <div className={`p-3 rounded-xl border ${subCardBg}`}>
+              <div className="flex items-center justify-between mb-2">
+                <span className={`text-[10px] font-black uppercase tracking-wider ${textSub}`}>📊 Plotly Entity Breakdown</span>
+                <span className="text-[9px] font-mono text-[#FF5A1F] font-bold">Live</span>
               </div>
-            )}
+              <div className="h-[130px] w-full rounded-lg overflow-hidden border" style={{ borderColor: isDarkMode ? '#27272A' : '#E2E8F0' }}>
+                <Plot
+                  data={[{
+                    y: ['Stolen Gold', 'Cash Seizure', 'Vault Damage', 'Gate Rammed'],
+                    x: [31.5, 4.8, 1.5, 0.85],
+                    type: 'bar' as const,
+                    orientation: 'h' as const,
+                    marker: { color: ['#3B82F6', '#60A5FA', '#EC4899', '#F43F5E'] },
+                    text: ['₹31.5L', '₹4.8L', '₹1.5L', '₹85K'],
+                    textposition: 'auto' as const,
+                  }]}
+                  layout={{
+                    autosize: true,
+                    margin: { l: 75, r: 15, b: 15, t: 5 },
+                    plot_bgcolor: isDarkMode ? '#111115' : '#FFFFFF',
+                    paper_bgcolor: isDarkMode ? '#111115' : '#FFFFFF',
+                    font: { color: isDarkMode ? '#F3F4F6' : '#111827', size: 8 },
+                    xaxis: { showgrid: false, zeroline: false },
+                    yaxis: { automargin: true },
+                  }}
+                  style={{ width: '100%', height: '100%' }}
+                  config={{ responsive: true, displayModeBar: false }}
+                />
+              </div>
+            </div>
           </div>
 
           {/* Footer Actions */}

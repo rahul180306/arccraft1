@@ -11,9 +11,11 @@ import { useUIStore } from '@/lib/stores/uiStore';
 import CytoscapeGraph, { CyNode, CyEdge, GraphData, LayoutOption } from './intelligence/CytoscapeGraph';
 import EntityPanel from './intelligence/EntityPanel';
 import GraphToolbar from './intelligence/GraphToolbar';
-import FilterPanel from './intelligence/FilterPanel';
+import FilterPanel, { PlotlyCategory } from './intelligence/FilterPanel';
 import { useInvestigationStore } from '@/lib/stores/investigationStore';
 import { type KSPCase } from '@/lib/data/realCases';
+import PlotlyCompactDock from './intelligence/PlotlyCompactDock';
+import PlotlyCulpritAnalytics from './intelligence/PlotlyCulpritAnalytics';
 
 // ─── Seed Graph Data (built from KSP Real Dataset Cases) ──────────────────────
 // Uses primary case (Murder) + property crime accused for cross-case network
@@ -134,12 +136,26 @@ export default function IntelligenceWorkspace() {
     setGraphData(buildRealGraph(activeCase, availableCases));
   }, [activeCase, availableCases]);
   const [layout, setLayout] = useState<LayoutOption>('cose');
+  const [showPlotlyDock, setShowPlotlyDock] = useState(true);
   const [selectedNode, setSelectedNode] = useState<CyNode | null>(null);
   const [highlightNodeId, setHighlightNodeId] = useState<string | null>(null);
   const [hiddenTypes, setHiddenTypes] = useState<string[]>([]);
   const [riskFilter, setRiskFilter] = useState<string>('all');
   const [isAddNodeOpen, setIsAddNodeOpen] = useState(false);
   const [isAILoading, setIsAILoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
+  const [plotlyActiveFilters, setPlotlyActiveFilters] = useState<Set<PlotlyCategory>>(
+    new Set(['Affected Victim', 'Confiscated Evidence', 'Property Damage', 'Crime Location', 'Witness Statement'])
+  );
+
+  const handleTogglePlotlyFilter = useCallback((cat: PlotlyCategory) => {
+    setPlotlyActiveFilters(prev => {
+      const next = new Set(prev);
+      if (next.has(cat)) { next.delete(cat); } else { next.add(cat); }
+      return next;
+    });
+  }, []);
 
   // New Entity form state
   const [newName, setNewName] = useState('');
@@ -168,14 +184,14 @@ export default function IntelligenceWorkspace() {
   }, []);
 
   const handleSearch = useCallback((query: string) => {
+    setSearchQuery(query);
     if (!query.trim()) { setHighlightNodeId(null); return; }
     const match = graphData.nodes.find(n =>
       n.label.toLowerCase().includes(query.toLowerCase()) ||
       n.id.toLowerCase().includes(query.toLowerCase())
     );
     setHighlightNodeId(match?.id || null);
-    if (!match) showToast('No entity found matching that query.');
-  }, [graphData.nodes, showToast]);
+  }, [graphData.nodes]);
 
   const handleAIQuery = useCallback(async (query: string) => {
     setIsAILoading(true);
@@ -385,12 +401,6 @@ export default function IntelligenceWorkspace() {
           <div className="absolute top-0 left-0 right-0 z-10">
             <GraphToolbar
               isDarkMode={isDarkMode}
-              currentLayout={layout}
-              onLayoutChange={setLayout}
-              onZoomIn={handleZoomIn}
-              onZoomOut={handleZoomOut}
-              onFit={handleFit}
-              onExportPNG={handleExportPNG}
               onSearch={handleSearch}
               onAIQuery={handleAIQuery}
               nodeCount={filteredGraphData.nodes.length}
@@ -398,28 +408,22 @@ export default function IntelligenceWorkspace() {
             />
           </div>
 
-          {/* Filter Panel */}
+          {/* Filter Panel (Collapsible left drawer controlling Plotly graph) */}
           <div className="absolute left-0 top-[44px] bottom-0 z-10">
             <FilterPanel
               isDarkMode={isDarkMode}
-              hiddenTypes={hiddenTypes}
-              onToggleType={handleToggleType}
-              riskFilter={riskFilter}
-              onRiskFilter={setRiskFilter}
+              activeFilters={plotlyActiveFilters}
+              onToggleFilter={handleTogglePlotlyFilter}
             />
           </div>
 
-          {/* Cytoscape Graph */}
+          {/* Main Visualization Canvas Container: Plotly Intelligence Graph */}
           <div className="absolute inset-0 top-[44px]">
-            <CytoscapeGraph
-              graphData={filteredGraphData}
-              layout={layout}
+            <PlotlyCulpritAnalytics
               isDarkMode={isDarkMode}
-              highlightNodeId={highlightNodeId}
-              hiddenTypes={hiddenTypes}
-              onNodeClick={handleNodeClick}
-              onExpandNode={handleExpandNode}
-              onReady={(cy) => { cyRef.current = cy; }}
+              searchQuery={searchQuery}
+              activeFilters={plotlyActiveFilters}
+              onToggleFilter={handleTogglePlotlyFilter}
             />
           </div>
 
