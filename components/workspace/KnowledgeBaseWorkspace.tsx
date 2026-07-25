@@ -249,7 +249,10 @@ export default function KnowledgeBaseWorkspace() {
 
   // Update articles on case change
   React.useEffect(() => {
-    setArticles(buildArticles(activeCase, availableCases));
+    const timer = setTimeout(() => {
+      setArticles(buildArticles(activeCase, availableCases));
+    }, 0);
+    return () => clearTimeout(timer);
   }, [activeCase, availableCases]);
 
   // Toggle Bookmark State

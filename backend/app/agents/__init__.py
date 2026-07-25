@@ -14,7 +14,7 @@ from app.agents.base import BaseAgent
 from app.agents.registry import AgentRegistry
 from app.agents.factory import AgentFactory
 from app.agents.queue import TaskQueue
-from app.agents.orchestrator import OrchestrationGraph
+
 
 __all__ = [
     "AgentType",
@@ -39,5 +39,4 @@ __all__ = [
     "AgentRegistry",
     "AgentFactory",
     "TaskQueue",
-    "OrchestrationGraph",
 ]

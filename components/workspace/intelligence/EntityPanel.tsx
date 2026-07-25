@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   X, User, Car, MapPin, Building2, FileText, Phone, CreditCard,
   Shield, AlertTriangle, ChevronRight, ExternalLink, Clock, Link2,
-  Fingerprint, Camera, FileCheck, Zap, Hash
+  Fingerprint, Camera, FileCheck, Zap, Hash, Sparkles
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { CyNode } from './CytoscapeGraph';
@@ -60,7 +60,10 @@ export default function EntityPanel({ node, onClose, isDarkMode, onOpenTimeline,
   const [isAnalyzing, setIsAnalyzing] = React.useState(false);
 
   React.useEffect(() => {
-    setAiAnalysis(null);
+    const timer = setTimeout(() => {
+      setAiAnalysis(null);
+    }, 0);
+    return () => clearTimeout(timer);
   }, [node?.id]);
 
   const handleGenerateAnalysis = async () => {
@@ -143,7 +146,7 @@ export default function EntityPanel({ node, onClose, isDarkMode, onOpenTimeline,
                   <div className="flex flex-col items-center gap-2">
                     <Sparkles size={18} className="text-blue-500" />
                     <span className={`text-xs font-bold ${textPrimary}`}>Generate AI Analysis</span>
-                    <span className={`text-[10px] text-center ${textSub}`}>Connect to Gemini backend to explain this entity's role in the network.</span>
+                    <span className={`text-[10px] text-center ${textSub}`}>Connect to Gemini backend to explain this entity&apos;s role in the network.</span>
                   </div>
                 )}
               </button>

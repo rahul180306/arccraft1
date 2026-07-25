@@ -115,6 +115,7 @@ export default function GoogleCalendarWidget({
     if (cached) {
       Promise.resolve().then(() => loadCalendarEvents(cached));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleConnectCalendar = async () => {

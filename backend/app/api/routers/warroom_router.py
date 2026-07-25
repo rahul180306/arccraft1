@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 from datetime import datetime
+from fastapi.responses import StreamingResponse
+from app.agents.orchestrator import generate_analysis_stream
 
 router = APIRouter(prefix="/warroom", tags=["Claude-Style AI Investigation Room"])
 
@@ -152,3 +154,15 @@ Multi-agent reasoning by the **Investigation Orchestrator** has established the 
         "chat_stream": chat_stream,
         "artifact_md": artifact_md
     }
+
+class AnalyzeRequest(BaseModel):
+    prompt: str
+    caseData: dict
+
+@router.post("/analyze")
+async def analyze_case(req: AnalyzeRequest):
+    """
+    SSE stream generating multi-agent analysis for a specific case.
+    """
+    generator = generate_analysis_stream(req.caseData, req.prompt)
+    return StreamingResponse(generator, media_type="text/event-stream")

@@ -6,10 +6,12 @@ from app.llm.gateway import ModelGateway
 
 from app.api.routers.ksp_router import router as ksp_router
 from app.api.routers.warroom_router import router as warroom_router
+from app.api.routers.investigation_router import router as investigation_router
 
 router = APIRouter()
 router.include_router(ksp_router)
 router.include_router(warroom_router)
+router.include_router(investigation_router)
 
 
 class ChatRequest(BaseModel):

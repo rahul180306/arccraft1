@@ -261,7 +261,10 @@ export default function SupervisorAuditWorkspace() {
   const [assignments, setAssignments] = React.useState<CaseAssignment[]>(() => buildAssignments(activeCase, availableCases));
 
   React.useEffect(() => {
-    setAssignments(buildAssignments(activeCase, availableCases));
+    const timer = setTimeout(() => {
+      setAssignments(buildAssignments(activeCase, availableCases));
+    }, 0);
+    return () => clearTimeout(timer);
   }, [activeCase, availableCases]);
 
   // OFFICER PERFORMANCE LIST

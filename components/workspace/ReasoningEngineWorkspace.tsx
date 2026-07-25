@@ -91,19 +91,22 @@ export default function ReasoningEngineWorkspace() {
         digital: activeCase.sections.length > 0 ? 'Excellent' : 'Moderate'
       }
     };
-    setReportData(null);
-    setDecisionRecord(null);
-    setChatEvents([
-      {
-        id: `sys-${Date.now()}`,
-        role: "Investigation Orchestrator",
-        sender_name: "Investigation Orchestrator",
-        avatar_bg: "bg-[#FF5A1F]",
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        content: `### 🚨 Intelligence Swarm Online\nReady to analyze FIR **${activeCase.crimeNo}** from **${activeCase.policeStation}**. Waiting for user directive...`,
-        type: "system"
-      }
-    ]);
+    const timer = setTimeout(() => {
+      setReportData(null);
+      setDecisionRecord(null);
+      setChatEvents([
+        {
+          id: `sys-${Date.now()}`,
+          role: "Investigation Orchestrator",
+          sender_name: "Investigation Orchestrator",
+          avatar_bg: "bg-[#FF5A1F]",
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          content: `### 🚨 Intelligence Swarm Online\nReady to analyze FIR **${activeCase.crimeNo}** from **${activeCase.policeStation}**. Waiting for user directive...`,
+          type: "system"
+        }
+      ]);
+    }, 0);
+    return () => clearTimeout(timer);
   }, [activeCase, metrics]);
 
   const generateAIReport = async () => {
@@ -194,7 +197,7 @@ export default function ReasoningEngineWorkspace() {
     showToast('🧠 Investigation Orchestrator analyzing query...');
 
     try {
-      const res = await fetch('/api/swarm/reason', {
+      const res = await fetch('http://localhost:8000/api/v1/warroom/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: query, caseData: activeCase })
@@ -306,7 +309,7 @@ export default function ReasoningEngineWorkspace() {
                   Live
                 </span>
               </div>
-              <p className={`text-[10px] sm:text-[11px] font-extrabold truncate ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>FIR #104430006202600001 (Anekal PS)</p>
+              <p className={`text-[10px] sm:text-[11px] font-extrabold truncate ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>FIR #{activeCase?.crimeNo || "Unknown"} ({activeCase?.policeStation || "Unknown PS"})</p>
             </div>
           </div>
 
@@ -442,7 +445,7 @@ export default function ReasoningEngineWorkspace() {
                     <div className="flex flex-col text-[11px] font-mono leading-tight tracking-wide p-1">
                       <div className={isDarkMode ? 'text-gray-600' : 'text-gray-400'}>{'━━━━━━━━━━━━━━━━━━━━━━━━━━━━'}</div>
                       <div className="font-black text-[#FF5A1F] uppercase mt-1">Decision Record</div>
-                      <div className="font-bold text-gray-500 mb-1">AI-30291</div>
+                      <div className="font-bold text-gray-500 mb-1">{decisionRecord?.id || "AI-Pending"}</div>
                       <div className={isDarkMode ? 'text-gray-600' : 'text-gray-400'}>{'━━━━━━━━━━━━━━━━━━━━━━━━━━━━'}</div>
                       
                       <div className="mt-2 font-bold text-emerald-500 uppercase">Accepted</div>
@@ -689,7 +692,7 @@ export default function ReasoningEngineWorkspace() {
                 <motion.div 
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="w-full max-w-[800px] flex flex-col gap-6"
+                  className="w-full flex flex-col gap-6"
                 >
                   
                   {/* Top Bar: Health Gauge & Top-line stats */}
@@ -786,7 +789,7 @@ export default function ReasoningEngineWorkspace() {
 
               {/* AI Authored Structured Report */}
               {reportData && (
-                <div className={`w-full max-w-[800px] p-6 sm:p-8 lg:p-12 rounded-xl shadow-xl border-2 ${
+                <div className={`w-full p-6 sm:p-8 lg:p-12 rounded-xl shadow-xl border-2 ${
                   isDarkMode ? 'bg-[#1C1C21] border-gray-800 text-gray-100' : 'bg-white border-gray-300 text-black'
                 } min-h-[600px] text-xs leading-relaxed font-sans`}>
                   
@@ -820,14 +823,11 @@ export default function ReasoningEngineWorkspace() {
                           <div className="relative border-l-2 border-gray-200 dark:border-gray-800 ml-3 space-y-6">
                             {section.data.map((evt: any, i: number) => (
                               <div key={i} className="relative pl-6">
-                                <div className={`absolute -left-[5px] top-1 w-2 h-2 rounded-full ${evt.confidence > 90 ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                                <div className={`absolute -left-[5px] top-1 w-2 h-2 rounded-full bg-blue-500`} />
                                 <div className="flex items-center gap-2 mb-1">
-                                  <span className="font-mono text-[10px] font-black text-[#FF5A1F]">{evt.time}</span>
-                                  <span className={`text-[9px] font-bold px-1.5 rounded ${evt.confidence > 90 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                                    {evt.confidence}% conf
-                                  </span>
+                                  <span className="font-mono text-[10px] font-black text-[#FF5A1F]">{evt.label}</span>
                                 </div>
-                                <p className="font-semibold">{evt.event}</p>
+                                <p className="font-semibold">{evt.value}</p>
                               </div>
                             ))}
                           </div>
@@ -835,15 +835,13 @@ export default function ReasoningEngineWorkspace() {
 
                         {/* 2. Evidence Ledger Renderer */}
                         {isEvidence && section.data && (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                             {section.data.map((ev: any, i: number) => (
                               <div key={i} className={`p-4 rounded-xl border ${isDarkMode ? 'bg-[#141417] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
                                 <div className="flex items-center justify-between mb-2">
-                                  <span className="text-[10px] font-black uppercase tracking-wider text-blue-500">{ev.type} Evidence</span>
-                                  {ev.confidence && <span className={`text-[10px] font-mono font-bold ${ev.confidence > 90 ? 'text-emerald-500' : 'text-amber-500'}`}>{ev.confidence}%</span>}
+                                  <span className="text-[10px] font-black uppercase tracking-wider text-blue-500">{ev.label}</span>
                                 </div>
-                                <p className="font-semibold mb-2">{ev.description}</p>
-                                {ev.id && <span className="text-[9px] font-mono text-gray-400">ID: {ev.id}</span>}
+                                <p className="font-semibold mb-2">{ev.value}</p>
                               </div>
                             ))}
                           </div>
@@ -857,21 +855,13 @@ export default function ReasoningEngineWorkspace() {
                                 <tr>
                                   <th className="p-3 font-black text-[10px] uppercase text-gray-500">Statute/Section</th>
                                   <th className="p-3 font-black text-[10px] uppercase text-gray-500">Description</th>
-                                  <th className="p-3 font-black text-[10px] uppercase text-gray-500">Status</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
                                 {section.data.map((leg: any, i: number) => (
                                   <tr key={i}>
-                                    <td className="p-3 font-mono text-[10px] font-bold">{leg.section}</td>
-                                    <td className="p-3 font-medium">{leg.description}</td>
-                                    <td className="p-3 font-bold text-[10px]">
-                                      {leg.compliance_status === 'Verified' ? (
-                                        <span className="text-emerald-500 flex items-center gap-1"><CheckCircle2 size={12}/> Verified</span>
-                                      ) : (
-                                        <span className="text-amber-500 flex items-center gap-1"><AlertCircle size={12}/> {leg.compliance_status}</span>
-                                      )}
-                                    </td>
+                                    <td className="p-3 font-mono text-[10px] font-bold">{leg.label}</td>
+                                    <td className="p-3 font-medium">{leg.value}</td>
                                   </tr>
                                 ))}
                               </tbody>
@@ -905,7 +895,7 @@ export default function ReasoningEngineWorkspace() {
                   {reportData.provenance && (
                     <div className={`mt-12 p-6 rounded-xl border-2 ${isDarkMode ? 'border-gray-800 bg-[#141417]' : 'border-gray-200 bg-gray-50'}`}>
                       <h3 className="text-[10px] font-black uppercase text-gray-500 mb-4 tracking-widest border-b pb-2 dark:border-gray-800">Provenance & AI Audit Trail</h3>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 font-mono text-[10px]">
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 font-mono text-[10px]">
                         <div>
                           <span className="block text-gray-400 mb-1">Generated By</span>
                           <span className="font-bold text-blue-500">{reportData.provenance.generated_by}</span>

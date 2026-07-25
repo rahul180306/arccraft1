@@ -172,7 +172,10 @@ export default function IntelligenceWorkspace() {
   
   // Update graph when active case changes
   useEffect(() => {
-    setGraphData(buildRealGraph(activeCase, availableCases));
+    const timer = setTimeout(() => {
+      setGraphData(buildRealGraph(activeCase, availableCases));
+    }, 0);
+    return () => clearTimeout(timer);
   }, [activeCase, availableCases]);
   const [layout, setLayout] = useState<LayoutOption>('cose');
   const [showPlotlyDock, setShowPlotlyDock] = useState(true);

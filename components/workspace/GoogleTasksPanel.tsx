@@ -65,14 +65,18 @@ export default function GoogleTasksPanel({
 
   useEffect(() => {
     if (activeCase) {
-      setLocalTasks([
-        { id: 'loc-1', title: 'Collect FSL Blood Sample Report', notes: `FIR ${activeCase.crimeNo}`, status: 'needsAction', due: activeCase.registrationDate },
-        { id: 'loc-2', title: `Record Statement of Witness (${activeCase.victims?.[0]?.name || 'Unknown'})`, notes: 'Witness pending statement', status: 'needsAction', due: activeCase.incidentDate },
-        { id: 'loc-3', title: 'Obtain Call Detail Records', notes: 'Request sent to Nodal Officer', status: 'needsAction', due: activeCase.registrationDate },
-        { id: 'loc-4', title: `Verify Alibi of Accused ${activeCase.accused?.[0]?.name || 'Unknown'}`, notes: 'Check CCTV around area', status: 'needsAction', due: activeCase.registrationDate },
-        { id: 'loc-5', title: 'Seize Weapon for Ballistic Test', notes: 'Latent prints on handle', status: 'needsAction', due: activeCase.incidentDate }
-      ]);
+      const timer = setTimeout(() => {
+        setLocalTasks([
+          { id: 'loc-1', title: 'Collect FSL Blood Sample Report', notes: `FIR ${activeCase.crimeNo}`, status: 'needsAction', due: activeCase.registrationDate },
+          { id: 'loc-2', title: `Record Statement of Witness (${activeCase.victims?.[0]?.name || 'Unknown'})`, notes: 'Witness pending statement', status: 'needsAction', due: activeCase.incidentDate },
+          { id: 'loc-3', title: 'Obtain Call Detail Records', notes: 'Request sent to Nodal Officer', status: 'needsAction', due: activeCase.registrationDate },
+          { id: 'loc-4', title: `Verify Alibi of Accused ${activeCase.accused?.[0]?.name || 'Unknown'}`, notes: 'Check CCTV around area', status: 'needsAction', due: activeCase.registrationDate },
+          { id: 'loc-5', title: 'Seize Weapon for Ballistic Test', notes: 'Latent prints on handle', status: 'needsAction', due: activeCase.incidentDate }
+        ]);
+      }, 0);
+      return () => clearTimeout(timer);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeCase]);
 
   const loadTasks = async (accessToken?: string) => {

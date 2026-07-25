@@ -35,11 +35,11 @@ export default function LeftInvestigationPanel({
 }: LeftInvestigationPanelProps) {
   const cardBg = isDarkMode
     ? 'bg-[#111827] border-[#1F2937] text-white'
-    : 'bg-white border-[#E2E8F0] text-slate-900 shadow-2xs';
+    : 'bg-white border-[#E2E8F0] text-slate-900 shadow-sm transition-shadow';
 
   const itemBg = isDarkMode
     ? 'bg-[#1F2937]/50 border-[#374151]/50 hover:bg-[#1F2937]'
-    : 'bg-[#F8FAFC] border-[#E2E8F0] hover:bg-slate-100';
+    : 'bg-white border-[#E2E8F0] hover:shadow-md transition-shadow';
 
   const workflow: Array<{ label: string; status: 'done' | 'active' | 'blocked'; detail: string }> = [
     { label: 'FIR Intake', status: 'done', detail: 'Complaint registered and validated' },
@@ -50,9 +50,9 @@ export default function LeftInvestigationPanel({
 
   const evidenceFilters = ['All', 'Video', 'Forensics', 'Telecom', 'Witness'];
   const evidenceItems = [
-    { title: 'Exit Gate CCTV', meta: 'Chain of custody • SHA-256 verified', color: 'text-red-500' },
-    { title: 'Latent Print Card', meta: 'Uploader: FSL Lab • 07:45 AM', color: 'text-emerald-500' },
-    { title: 'Airtel CDR Request', meta: 'Awaiting nodal officer acknowledgement', color: 'text-blue-500' },
+    { title: 'Exit Gate CCTV', meta: 'Missing • Needs procurement', tone: 'amber', icon: AlertTriangle },
+    { title: 'Latent Print Card', meta: 'Uploader: FSL Lab • 07:45 AM', tone: 'emerald', icon: CheckCircle2 },
+    { title: 'Airtel CDR Request', meta: 'Awaiting nodal officer acknowledgement', tone: 'blue', icon: Clock3 },
   ];
 
   const tasks = [
@@ -62,8 +62,8 @@ export default function LeftInvestigationPanel({
   ];
 
   const persons = [
-    { name: 'Suresh Kumar', role: 'Accused', badge: 'High Risk', tone: 'bg-rose-500/10 text-rose-600 border-rose-200' },
-    { name: 'Ramesh Kumar', role: 'Witness', badge: 'Reliable', tone: 'bg-emerald-500/10 text-emerald-600 border-emerald-200' },
+    { name: 'Suresh Kumar', role: 'Accused', badge: 'High Risk', tone: isDarkMode ? 'bg-rose-500/10 text-rose-600 border-rose-200' : 'bg-red-50 text-red-700 border-red-200', priors: '3 Priors' },
+    { name: 'Ramesh Kumar', role: 'Witness', badge: 'Reliable', tone: isDarkMode ? 'bg-emerald-500/10 text-emerald-600 border-emerald-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200', priors: 'None' },
   ];
 
   const actionButtons: Array<{ label: string; subtitle: string; icon: LucideIcon; action: () => void; tone: string }> = [
@@ -104,7 +104,7 @@ export default function LeftInvestigationPanel({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Search size={15} className="text-[#FF5A1F]" />
-            <span className="text-[10px] font-mono font-bold uppercase tracking-[0.24em] text-gray-400">Search & Filters</span>
+            <span className={`text-[10px] font-mono font-bold uppercase tracking-[0.24em] ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>Search & Filters</span>
           </div>
           <span className="text-[10px] font-semibold text-slate-500">Recent searches</span>
         </div>
@@ -115,9 +115,9 @@ export default function LeftInvestigationPanel({
             </span>
           ))}
         </div>
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-4 flex flex-wrap gap-4 border-b border-slate-200 pb-1">
           {evidenceFilters.map((filter) => (
-            <button key={filter} className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${filter === 'All' ? 'bg-[#FF5A1F] text-white' : isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
+            <button key={filter} className={`pb-1 text-sm ${filter === 'All' ? 'text-[#FF5A1F] border-b-2 border-[#FF5A1F] font-semibold' : 'text-slate-500 border-b-2 border-transparent hover:text-slate-700'}`}>
               {filter}
             </button>
           ))}
@@ -128,43 +128,59 @@ export default function LeftInvestigationPanel({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Clock3 size={15} className="text-[#FF5A1F]" />
-            <span className="text-[10px] font-mono font-bold uppercase tracking-[0.24em] text-gray-400">Progress Workflow</span>
+            <span className={`text-[10px] font-mono font-bold uppercase tracking-[0.24em] ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>Progress Workflow</span>
           </div>
           <span className="text-[10px] font-semibold text-amber-500">2 flagged</span>
         </div>
         <div className="mt-3 flex flex-col gap-2">
-          {workflow.map((step) => (
-            <div key={step.label} className={`rounded-2xl border p-2.5 ${isDarkMode ? 'border-slate-800 bg-slate-900/40' : 'border-slate-200 bg-slate-50'}`}>
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  {step.status === 'done' ? <CheckCircle2 size={14} className="text-emerald-500" /> : step.status === 'active' ? <BadgeCheck size={14} className="text-blue-500" /> : <AlertTriangle size={14} className="text-amber-500" />}
-                  <span className="text-sm font-semibold">{step.label}</span>
+          {workflow.map((step) => {
+            const statusClasses = 
+              step.status === 'done' ? (isDarkMode ? 'border-emerald-900/50 bg-emerald-900/20' : 'bg-emerald-50 border-emerald-300') :
+              step.status === 'active' ? (isDarkMode ? 'border-orange-900/50 bg-orange-900/20' : 'bg-orange-50 border-orange-400') :
+              (isDarkMode ? 'border-slate-800 bg-slate-900/40' : 'bg-white border-slate-300 text-slate-500');
+
+            const textTone = 
+              step.status === 'done' ? 'text-emerald-700' :
+              step.status === 'active' ? 'text-orange-700' :
+              'text-slate-500';
+
+            return (
+              <div key={step.label} className={`rounded-2xl border p-2.5 ${statusClasses}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    {step.status === 'done' ? <CheckCircle2 size={14} className={textTone} /> : step.status === 'active' ? <BadgeCheck size={14} className={textTone} /> : <AlertTriangle size={14} className={textTone} />}
+                    <span className={`text-sm font-semibold ${textTone}`}>{step.label}</span>
+                  </div>
+                  <span className={`text-[10px] font-bold uppercase ${textTone}`}>{step.status}</span>
                 </div>
-                <span className={`text-[10px] font-bold uppercase ${step.status === 'blocked' ? 'text-amber-500' : step.status === 'active' ? 'text-blue-500' : 'text-emerald-500'}`}>{step.status}</span>
+                <p className={`mt-1 text-[11px] ${textTone}`}>{step.detail}</p>
               </div>
-              <p className="mt-1 text-[11px] text-slate-500">{step.detail}</p>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
       <div className={`rounded-[24px] border p-4 ${cardBg}`}>
         <div className="flex items-center justify-between">
-          <span className="text-[10px] font-mono font-bold uppercase tracking-[0.24em] text-gray-400">Evidence</span>
+          <span className={`text-[10px] font-mono font-bold uppercase tracking-[0.24em] ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>Evidence</span>
           <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-500">Chain of custody</span>
         </div>
         <div className="mt-3 flex flex-col gap-2">
-          {evidenceItems.map((item) => (
-            <div key={item.title} className={`rounded-2xl border p-2.5 ${itemBg}`}>
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <div className="text-sm font-semibold">{item.title}</div>
-                  <div className="text-[11px] text-slate-500">{item.meta}</div>
+          {evidenceItems.map((item) => {
+             const borderTone = isDarkMode ? `border-${item.tone}-900/50` : item.tone === 'emerald' ? 'border-emerald-300' : item.tone === 'amber' ? 'border-orange-300' : 'border-blue-300';
+             const Icon = item.icon;
+             return (
+              <div key={item.title} className={`rounded-2xl border p-2.5 ${isDarkMode ? itemBg : 'bg-white shadow-sm'} ${borderTone}`}>
+                <div className="flex items-start gap-2">
+                  <Icon size={16} className={`mt-0.5 text-${item.tone === 'amber' ? 'orange' : item.tone}-600`} />
+                  <div>
+                    <div className="text-sm font-semibold text-slate-900 dark:text-white">{item.title}</div>
+                    <div className="text-[11px] text-slate-500">{item.meta}</div>
+                  </div>
                 </div>
-                <div className={`h-2.5 w-2.5 rounded-full ${item.color} bg-current`} />
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -193,22 +209,25 @@ export default function LeftInvestigationPanel({
 
       <div className={`rounded-[24px] border p-4 ${cardBg}`}>
         <div className="flex items-center justify-between">
-          <span className="text-[10px] font-mono font-bold uppercase tracking-[0.24em] text-gray-400">Key Persons</span>
+          <span className={`text-[10px] font-mono font-bold uppercase tracking-[0.24em] ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>Key Persons</span>
           <span className="text-[10px] font-semibold text-slate-500">Split view</span>
         </div>
         <div className="mt-3 grid gap-2">
           {persons.map((person) => (
-            <div key={person.name} className={`flex items-center justify-between rounded-2xl border p-2.5 ${isDarkMode ? 'border-slate-800 bg-slate-900/30' : 'border-slate-200 bg-slate-50'}`}>
-              <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200/70 text-slate-700">
-                  {person.role === 'Accused' ? <UserRound size={15} /> : <Users size={15} />}
+            <div key={person.name} className={`flex items-center justify-between rounded-2xl border p-2.5 ${itemBg}`}>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-200/70 text-slate-700">
+                  {person.role === 'Accused' ? <UserRound size={18} /> : <Users size={18} />}
                 </div>
-                <div>
-                  <div className="text-sm font-semibold">{person.name}</div>
-                  <div className="text-[11px] text-slate-500">{person.role}</div>
+                <div className="flex flex-col">
+                  <span className="text-sm font-semibold">{person.name}</span>
+                  <span className="text-[11px] text-slate-500">{person.role}</span>
                 </div>
               </div>
-              <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${person.tone}`}>{person.badge}</span>
+              <div className="flex flex-col items-end gap-1">
+                <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${person.tone}`}>{person.badge}</span>
+                <span className="text-[10px] text-slate-400">{person.priors}</span>
+              </div>
             </div>
           ))}
         </div>

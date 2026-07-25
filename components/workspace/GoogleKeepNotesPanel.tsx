@@ -61,13 +61,14 @@ export default function GoogleKeepNotesPanel({
   };
 
   useEffect(() => {
-    const cached = getTasksAccessToken();
-    if (cached) {
-      Promise.resolve().then(() => loadNotes(cached));
-    } else {
-      Promise.resolve().then(() => loadNotes());
+    if (token) {
+      const timer = setTimeout(() => {
+        loadNotes();
+      }, 0);
+      return () => clearTimeout(timer);
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
   const handleConnectKeep = async () => {
     try {

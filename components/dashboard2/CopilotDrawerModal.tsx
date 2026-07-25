@@ -61,22 +61,21 @@ export default function CopilotDrawerModal({ isOpen, onClose, initialPrompt }: C
 
   const currentModel = MODEL_OPTIONS.find(m => m.id === selectedModel) || MODEL_OPTIONS[0];
 
-  const activeCase = useInvestigationStore(s => s.activeCase);
-
-  // Guard: this modal is only rendered after Dashboard2 confirms data is loaded
-  if (!activeCase) return null;
+  const rawActiveCase = useInvestigationStore(s => s.activeCase);
+  const activeCase = rawActiveCase || { crimeNo: '', victims: [], accused: [], district: '', policeStation: '', caseStatus: '', ioName: '', sections: [], hasChargesheet: false, hasArrest: false, crimeHead: '', crimeSubHead: '' } as any;
 
   // Derive greeting memoized
   const greeting = React.useMemo(() => {
+    if (!rawActiveCase) return { sender: 'assistant' as const, systemPrompt: '', text: '', time: '', confidence: 0, sources: [] };
     return {
       sender: 'assistant' as const,
       systemPrompt: `You are an advanced police intelligence AI. You speak in a highly professional, clinical tone. Analyze intelligence and map facts back to the BNS (Bharatiya Nyaya Sanhita). Current active case context: FIR ${activeCase.crimeNo} (${activeCase.crimeHead} - ${activeCase.crimeSubHead}) in ${activeCase.district}. Status: ${activeCase.caseStatus}. IO: ${activeCase.ioName}.`,
-      text: `### 🧠 ArcCraft AI Intelligence Copilot Active\nNamaste Inspector ${activeCase.ioName}. I have access to the **KSP CCTNS database with ${metrics.totalFIRs.toLocaleString()} real FIRs**.\n\n- **Active Case**: FIR \`${activeCase.crimeNo}\` — ${activeCase.crimeSubHead}, ${activeCase.policeStation}\n- **Accused**: ${activeCase.accused.map(a=>a.name).join(', ')}\n- **Status**: ${activeCase.caseStatus} | **District**: ${activeCase.district}\n- **Crime Stats**: ${metrics.underInvestigation} Under Investigation · ${metrics.pendingTrial} Pending Trial · ${metrics.convicted} Convicted\n\nWhat investigation task, legal query, or intelligence analysis would you like to run today?`,
+      text: `### 🧠 ArcCraft AI Intelligence Copilot Active\nNamaste Inspector ${activeCase.ioName}. I have access to the **KSP CCTNS database with ${metrics.totalFIRs.toLocaleString()} real FIRs**.\n\n- **Active Case**: FIR \`${activeCase.crimeNo}\` — ${activeCase.crimeSubHead}, ${activeCase.policeStation}\n- **Accused**: ${activeCase.accused.map((a: any)=>a.name).join(', ')}\n- **Status**: ${activeCase.caseStatus} | **District**: ${activeCase.district}\n- **Crime Stats**: ${metrics.underInvestigation} Under Investigation · ${metrics.pendingTrial} Pending Trial · ${metrics.convicted} Convicted\n\nWhat investigation task, legal query, or intelligence analysis would you like to run today?`,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       confidence: 98,
       sources: [`FIR ${activeCase.crimeNo}`, "CCTNS Karnataka", "KSP AFIS DB", "BNS/BNSS Code"]
     };
-  }, [activeCase, metrics]);
+  }, [activeCase, metrics, rawActiveCase]);
 
   const [messages, setMessages] = useState<Message[]>([greeting]);
 
@@ -317,6 +316,8 @@ export default function CopilotDrawerModal({ isOpen, onClose, initialPrompt }: C
   }, [initialPrompt, isOpen, sendMessage]);
 
   if (!isOpen) return null;
+
+  if (!rawActiveCase) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-[#0B0F19]/80 backdrop-blur-md flex justify-end animate-fadeIn">
