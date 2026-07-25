@@ -191,6 +191,9 @@ export default function IntelligenceWorkspace() {
     new Set(['Affected Victim', 'Confiscated Evidence', 'Property Damage', 'Crime Location', 'Witness Statement'])
   );
 
+  // Actual node counts pushed up from PlotlyCulpritAnalytics — single source of truth for badges
+  const [plotlyCategoryCounts, setPlotlyCategoryCounts] = useState<Partial<Record<PlotlyCategory, number>>>({});
+
   const handleTogglePlotlyFilter = useCallback((cat: PlotlyCategory) => {
     setPlotlyActiveFilters(prev => {
       const next = new Set(prev);
@@ -502,6 +505,8 @@ export default function IntelligenceWorkspace() {
               isDarkMode={isDarkMode}
               activeFilters={plotlyActiveFilters}
               onToggleFilter={handleTogglePlotlyFilter}
+              activeCase={activeCase}
+              categoryCounts={plotlyCategoryCounts}
             />
           </div>
 
@@ -512,6 +517,8 @@ export default function IntelligenceWorkspace() {
               searchQuery={searchQuery}
               activeFilters={plotlyActiveFilters}
               onToggleFilter={handleTogglePlotlyFilter}
+              activeCase={activeCase}
+              onCategoryCountsChange={setPlotlyCategoryCounts}
             />
           </div>
 

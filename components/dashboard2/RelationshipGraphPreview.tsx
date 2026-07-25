@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Network, 
@@ -11,12 +11,11 @@ import {
   MapPin, 
   Phone, 
   X, 
-  ZoomIn, 
-  ZoomOut, 
-  Filter 
+  FileText
 } from 'lucide-react';
 import PremiumCard from '@/components/ui/PremiumCard';
 import StatusBadge from '@/components/ui/StatusBadge';
+import { useInvestigationStore } from '@/lib/stores/investigationStore';
 
 interface RelationshipGraphPreviewProps {
   onOpenFullscreen: () => void;
@@ -24,15 +23,68 @@ interface RelationshipGraphPreviewProps {
 
 export default function RelationshipGraphPreview({ onOpenFullscreen }: RelationshipGraphPreviewProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const activeCase = useInvestigationStore(s => s.activeCase);
   const [selectedNode, setSelectedNode] = useState<{ name: string; type: string; role: string; details: string } | null>(null);
 
-  const nodes = [
-    { id: 'n1', name: 'Ramesh Kumar', type: 'person', role: 'Victim / Complainant', details: 'House owner, Building #4B, Anekal', color: 'bg-blue-500' },
-    { id: 'n2', name: 'Bullet Suresh', type: 'suspect', role: 'Primary Accused', details: 'Repeat offender, 4 prior burglary cases in CCTNS', color: 'bg-red-500' },
-    { id: 'n3', name: 'KA-03-MN-4491', type: 'vehicle', role: 'Getaway Vehicle', details: 'Blue SUV spotted on CCTV at Exit Gate', color: 'bg-emerald-500' },
-    { id: 'n4', name: 'Anekal Hideout', type: 'location', role: 'Crime Scene / Stash', details: 'Abandoned warehouse near Silk Board', color: 'bg-purple-500' },
-    { id: 'n5', name: '+91 98801XXXXX', type: 'phone', role: 'Suspect Mobile CDR', details: 'Active on tower dump during crime timeframe', color: 'bg-amber-500' }
-  ];
+  const nodes = useMemo(() => {
+    if (!activeCase) {
+      return [
+        { id: 'n1', name: 'Ramesh Kumar', type: 'person', role: 'Victim / Complainant', details: 'House owner, Building #4B, Anekal', color: 'bg-blue-500' },
+        { id: 'n2', name: 'Bullet Suresh', type: 'suspect', role: 'Primary Accused', details: 'Repeat offender, 4 prior burglary cases in CCTNS', color: 'bg-red-500' },
+        { id: 'n3', name: 'KA-03-MN-4491', type: 'vehicle', role: 'Getaway Vehicle', details: 'Blue SUV spotted on CCTV at Exit Gate', color: 'bg-emerald-500' },
+        { id: 'n4', name: 'Anekal Hideout', type: 'location', role: 'Crime Scene / Stash', details: 'Abandoned warehouse near Silk Board', color: 'bg-purple-500' },
+        { id: 'n5', name: '+91 98801XXXXX', type: 'phone', role: 'Suspect Mobile CDR', details: 'Active on tower dump during crime timeframe', color: 'bg-amber-500' }
+      ];
+    }
+
+    const victimName = activeCase.victims[0]?.name || activeCase.complainant || 'Victim';
+    const suspectName = activeCase.accused[0]?.name || 'Unidentified Suspect';
+    const locationName = activeCase.policeStation;
+    const ioName = activeCase.ioName;
+
+    return [
+      { 
+        id: 'n1', 
+        name: victimName, 
+        type: 'person', 
+        role: 'Victim / Complainant', 
+        details: `Primary victim in FIR ${activeCase.crimeNo} (${activeCase.crimeSubHead}).`, 
+        color: 'bg-blue-500' 
+      },
+      { 
+        id: 'n2', 
+        name: suspectName, 
+        type: 'suspect', 
+        role: 'Primary Accused', 
+        details: `Accused in FIR ${activeCase.crimeNo}. Status: ${activeCase.caseStatus}. Arrested: ${activeCase.hasArrest ? 'Yes' : 'No'}.`, 
+        color: 'bg-red-500' 
+      },
+      { 
+        id: 'n3', 
+        name: activeCase.sections[0] || `FIR ${activeCase.crimeNo.slice(-6)}`, 
+        type: 'evidence', 
+        role: 'Legal Section / Evidence', 
+        details: `Legal section charged: ${activeCase.sections.join(', ') || activeCase.crimeHead}`, 
+        color: 'bg-emerald-500' 
+      },
+      { 
+        id: 'n4', 
+        name: locationName, 
+        type: 'location', 
+        role: 'Scene of Crime', 
+        details: `Registered at ${activeCase.policeStation}, ${activeCase.district}. GPS: ${activeCase.lat.toFixed(2)}°, ${activeCase.lng.toFixed(2)}°`, 
+        color: 'bg-purple-500' 
+      },
+      { 
+        id: 'n5', 
+        name: `IO ${ioName}`, 
+        type: 'officer', 
+        role: 'Investigating Officer', 
+        details: `IO (KGID: ${activeCase.ioKgid}) assigned to handle FIR ${activeCase.crimeNo}.`, 
+        color: 'bg-amber-500' 
+      }
+    ];
+  }, [activeCase]);
 
   const handleNodeClick = (node: typeof nodes[0]) => {
     setSelectedNode(node);
@@ -53,9 +105,11 @@ export default function RelationshipGraphPreview({ onOpenFullscreen }: Relations
                   <h3 className="text-base font-extrabold text-[#111111] dark:text-white tracking-tight">
                     Relationship Link Graph
                   </h3>
-                  <StatusBadge label="CCTNS LINK" type="info" />
+                  <StatusBadge label={activeCase ? `FIR ${activeCase.crimeNo.slice(-6)}` : "CCTNS LINK"} type="info" />
                 </div>
-                <p className="text-[10px] text-gray-500 font-medium">Cross-case intelligence node mapping</p>
+                <p className="text-[10px] text-gray-500 font-medium">
+                  {activeCase ? `Cross-case entity mapping for ${activeCase.crimeSubHead}` : 'Cross-case intelligence node mapping'}
+                </p>
               </div>
             </div>
 
@@ -96,7 +150,7 @@ export default function RelationshipGraphPreview({ onOpenFullscreen }: Relations
                   <User size={18} />
                 </div>
                 <span className="text-[10px] font-extrabold text-blue-200">Victim</span>
-                <span className="text-[9px] text-gray-400 font-mono">Ramesh</span>
+                <span className="text-[9px] text-gray-400 font-mono truncate max-w-[70px]">{nodes[0].name.split(' ')[0]}</span>
               </motion.button>
 
               <motion.button 
@@ -108,7 +162,7 @@ export default function RelationshipGraphPreview({ onOpenFullscreen }: Relations
                   <UserX size={18} />
                 </div>
                 <span className="text-[10px] font-extrabold text-red-300">Suspect</span>
-                <span className="text-[9px] text-gray-400 font-mono">Bullet Suresh</span>
+                <span className="text-[9px] text-gray-400 font-mono truncate max-w-[70px]">{nodes[1].name.split(' ')[0]}</span>
               </motion.button>
 
               <motion.button 
@@ -117,10 +171,10 @@ export default function RelationshipGraphPreview({ onOpenFullscreen }: Relations
                 className="flex flex-col items-center gap-1 group cursor-pointer"
               >
                 <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center border-2 border-white/20 shadow-lg group-hover:bg-emerald-500 transition-colors">
-                  <Car size={18} />
+                  <FileText size={18} />
                 </div>
-                <span className="text-[10px] font-extrabold text-emerald-300">Vehicle</span>
-                <span className="text-[9px] text-gray-400 font-mono">KA-03-MN</span>
+                <span className="text-[10px] font-extrabold text-emerald-300">Evidence</span>
+                <span className="text-[9px] text-gray-400 font-mono truncate max-w-[70px]">{nodes[2].name.split(' ')[0]}</span>
               </motion.button>
 
               <motion.button 
@@ -132,14 +186,14 @@ export default function RelationshipGraphPreview({ onOpenFullscreen }: Relations
                   <MapPin size={18} />
                 </div>
                 <span className="text-[10px] font-extrabold text-purple-300">Location</span>
-                <span className="text-[9px] text-gray-400 font-mono">Anekal</span>
+                <span className="text-[9px] text-gray-400 font-mono truncate max-w-[70px]">{nodes[3].name.split(' ')[0]}</span>
               </motion.button>
             </div>
           </div>
         </div>
 
         <div className="pt-2 text-[10px] text-gray-400 font-medium flex items-center justify-between">
-          <span>Discovers hidden co-accused & vehicle overlaps from Karnataka police records.</span>
+          <span>Click any node to inspect relationship details for this FIR.</span>
         </div>
       </PremiumCard>
 
@@ -163,7 +217,9 @@ export default function RelationshipGraphPreview({ onOpenFullscreen }: Relations
                   </div>
                   <div>
                     <h2 className="text-xl font-extrabold tracking-tight">Interactive Entity Link Analysis</h2>
-                    <p className="text-xs text-gray-400">FIR KRP/2026/0456 • Cross-Station Entity Mapping</p>
+                    <p className="text-xs text-gray-400">
+                      {activeCase ? `FIR ${activeCase.crimeNo} • ${activeCase.policeStation}` : 'Cross-Station Entity Mapping'}
+                    </p>
                   </div>
                 </div>
 
@@ -227,4 +283,3 @@ export default function RelationshipGraphPreview({ onOpenFullscreen }: Relations
     </>
   );
 }
-

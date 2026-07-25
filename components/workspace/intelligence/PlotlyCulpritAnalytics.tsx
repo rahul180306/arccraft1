@@ -4,8 +4,10 @@ import React, { useState, useMemo, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import {
   ShieldAlert, Package, Users, MapPin, AlertTriangle,
-  DollarSign, X, Filter, Eye, EyeOff
+  DollarSign, X, Filter, Eye
 } from 'lucide-react';
+import { useInvestigationStore } from '@/lib/stores/investigationStore';
+import { type KSPCase } from '@/lib/data/realCases';
 
 // Dynamically import Plotly with SSR disabled for Next.js App Router compatibility
 const Plot = dynamic(() => import('react-plotly.js'), { ssr: false });
@@ -37,6 +39,9 @@ interface PlotlyCulpritAnalyticsProps {
   searchQuery?: string;
   activeFilters?: Set<Category>;
   onToggleFilter?: (cat: Category) => void;
+  activeCase?: KSPCase | null;
+  /** Called whenever the node set changes so parent can sync FilterPanel badge counts */
+  onCategoryCountsChange?: (counts: Partial<Record<Category, number>>) => void;
 }
 
 // ─── Category Config ──────────────────────────────────────────────────────────
@@ -50,135 +55,264 @@ const CATEGORY_CONFIG: Record<Category, { color: string; icon: React.ReactNode; 
   'Property Damage': { color: '#EC4899', icon: <AlertTriangle size={11} />, label: 'Damage', edgeWidth: 2, edgeDash: 'solid' },
 };
 
-// ─── Network Data ─────────────────────────────────────────────────────────────
-
-const ALL_NODES: CulpritNode[] = [
-  // Center
-  {
-    id: 'SK', label: 'Suresh Kumar\n(Main Culprit)', category: 'Culprit',
-    x: 0, y: 0, size: 52, color: '#EF4444',
-    desc: 'Prime Accused — FIR KRP/2026/0456. Gang Syndicate Leader. Known recidivist with 3 prior FIRs.',
-    tags: ['Gang Leader', 'Armed Burglary', 'Recidivist'],
-  },
-  // Victims
-  {
-    id: 'VIC1', label: 'Anekal Resident\nFamily', category: 'Affected Victim',
-    x: -3.0, y: 3.6, size: 28, color: '#F59E0B',
-    desc: 'Primary Burglary Victim. Total stolen assets: ₹36.3L. Property badly damaged during break-in.',
-    tags: ['Primary Victim', '₹36.3L Lost'],
-  },
-  {
-    id: 'VIC2', label: 'Sandeep M.', category: 'Affected Victim',
-    x: 0, y: 4.4, size: 22, color: '#F59E0B',
-    desc: 'Neighbour robbed at knifepoint during getaway. Suffered minor injuries. Filed complaint separately.',
-    tags: ['Assault Victim', 'Sec 154 CrPC'],
-  },
-  {
-    id: 'VIC3', label: 'Hoodi Commercial\nOwners', category: 'Affected Victim',
-    x: 3.0, y: 3.6, size: 24, color: '#F59E0B',
-    desc: 'Commercial disruption caused during high-speed vehicle chase. 2 shops damaged.',
-    tags: ['Commercial Loss', '2 Shops Damaged'],
-  },
-  // Evidence
-  {
-    id: 'EVD1', label: 'AFIS Print #01\n(94.2% Match)', category: 'Confiscated Evidence',
-    x: 4.6, y: 1.8, size: 28, color: '#3B82F6',
-    desc: 'Biometric latent fingerprint lifted from vault safe door handle. AFIS match 94.2% — accepted in court.',
-    tags: ['Biometric', 'Court Admissible', '94.2%'],
-  },
-  {
-    id: 'EVD2', label: 'CCTV_01.mp4\nFootage', category: 'Confiscated Evidence',
-    x: 5.2, y: -0.2, size: 24, color: '#3B82F6',
-    desc: 'CCTV captures Innova KA03MN4481 entering gated compound at 02:17 hrs. Timestamp verified.',
-    tags: ['Video Evidence', 'KA03MN4481'],
-  },
-  {
-    id: 'EVD3', label: 'Stolen Gold\n420g (₹31.5L)', category: 'Confiscated Evidence',
-    x: 4.6, y: -2.2, size: 30, color: '#3B82F6',
-    desc: 'Gold ornaments confiscated from TC Palya hideout stash during police raid. Fully recovered.',
-    tags: ['Physical Evidence', '₹31.5L', 'Gold'],
-  },
-  {
-    id: 'EVD4', label: 'Seized Cash\n₹4.8 Lakhs', category: 'Confiscated Evidence',
-    x: 3.0, y: -4.0, size: 24, color: '#3B82F6',
-    desc: 'Loot currency notes bearing bank markings. Partial serial numbers traceable to victim bank.',
-    tags: ['₹4.8L Cash', 'Traceable Notes'],
-  },
-  {
-    id: 'EVD5', label: 'Hydraulic Cutter\n& Crowbar', category: 'Confiscated Evidence',
-    x: 1.2, y: -4.8, size: 22, color: '#3B82F6',
-    desc: 'Professional housebreaking equipment used to pry open vault. Lab-confirmed contact marks on safe.',
-    tags: ['Housebreaking Tool', 'Lab Confirmed'],
-  },
-  // Damage
-  {
-    id: 'DMG1', label: 'Vault Door\nDestroyed (₹1.5L)', category: 'Property Damage',
-    x: -1.2, y: -4.8, size: 26, color: '#EC4899',
-    desc: 'Heavy-duty safe vault door pried & blown open with hydraulic cutter. Replacement cost: ₹1,50,000.',
-    tags: ['₹1.5L Damage', 'Vault'],
-  },
-  {
-    id: 'DMG2', label: 'Security Gate\nRammed (₹85K)', category: 'Property Damage',
-    x: -3.0, y: -4.0, size: 24, color: '#EC4899',
-    desc: 'Entrance gate & perimeter fence rammed during getaway with Innova. Repair cost: ₹85,000.',
-    tags: ['₹85K Damage', 'Perimeter'],
-  },
-  {
-    id: 'DMG3', label: 'CCTV Box\nCut (₹45K)', category: 'Property Damage',
-    x: -4.6, y: -2.2, size: 22, color: '#EC4899',
-    desc: 'Surveillance power & fibre wires deliberately cut. CCTV offline for 38 mins post-incident.',
-    tags: ['₹45K Damage', 'Surveillance Sabotage'],
-  },
-  // Locations
-  {
-    id: 'LOC1', label: 'Plot #42 Anekal\nCrime Scene', category: 'Crime Location',
-    x: -5.2, y: -0.2, size: 30, color: '#8B5CF6',
-    desc: 'Primary armed burglary site. Scene of Crime Officer (SOCO) report filed. GPS: 12.7109°N, 77.6938°E.',
-    tags: ['SOC', 'GPS Tagged', 'Anekal'],
-  },
-  {
-    id: 'LOC2', label: 'Hoodi BTS\nTower #402', category: 'Crime Location',
-    x: -4.6, y: 1.8, size: 24, color: '#8B5CF6',
-    desc: 'Cell tower dump confirms suspect mobile ping at 02:11 hrs. CDR used as corroborative evidence.',
-    tags: ['CDR Evidence', 'Tower Dump', 'Hoodi'],
-  },
-  {
-    id: 'LOC3', label: 'TC Palya\nHideout', category: 'Crime Location',
-    x: -3.0, y: 3.8, size: 0, color: '#8B5CF6',
-    desc: 'Suspect safe house raided at 06:45 hrs. Stolen goods & tools recovered on premises.',
-    tags: ['Raid Location', 'TC Palya'],
-  },
-  // Witnesses
-  {
-    id: 'WIT1', label: 'Harish K.\n(Key Witness)', category: 'Witness Statement',
-    x: -2.4, y: 4.4, size: 24, color: '#10B981',
-    desc: 'Sec 161 CrPC statement recorded. Confirmed timeline of events and suspect vehicle movement.',
-    tags: ['Sec 161 CrPC', 'Timeline Witness'],
-  },
-  {
-    id: 'WIT2', label: 'Mohan Lal\n(Security Guard)', category: 'Witness Statement',
-    x: 1.2, y: 4.8, size: 22, color: '#10B981',
-    desc: 'Eyewitness. Identified suspect and Innova KA03MN4481. Provided positive ID in TI parade.',
-    tags: ['Eyewitness', 'TI Parade'],
-  },
-  {
-    id: 'WIT3', label: 'Dr. V. Rao\n(Forensic Officer)', category: 'Witness Statement',
-    x: 3.6, y: 4.0, size: 22, color: '#10B981',
-    desc: 'FSL expert. Certified AFIS print analysis, tool marks, and gold purity confirmation for court.',
-    tags: ['FSL Expert', 'Court Witness'],
-  },
-];
-
-// Monetary breakdown for bar chart
-const MONETARY_ITEMS = [
-  { item: 'Stolen Gold', amount: 3150000, color: '#3B82F6' },
-  { item: 'Seized Cash', amount: 480000, color: '#60A5FA' },
-  { item: 'Vault Damage', amount: 150000, color: '#EC4899' },
-  { item: 'Gate Damage', amount: 85000, color: '#F43F5E' },
-  { item: 'CCTV Damage', amount: 45000, color: '#FB7185' },
-];
-
 const ALL_CATEGORIES = Object.keys(CATEGORY_CONFIG).filter(c => c !== 'Culprit') as Category[];
+
+// Helper to construct dynamic node graph from KSP Case
+function buildDynamicNodes(activeCase: KSPCase | null, focalPersonId?: string | null) {
+  if (!activeCase) {
+    // Default fallback case
+    const defaultNodes: CulpritNode[] = [
+      {
+        id: 'SK', label: 'Suresh Kumar\n(Main Culprit)', category: 'Culprit',
+        x: 0, y: 0, size: 52, color: '#EF4444',
+        desc: 'Prime Accused — FIR KRP/2026/0456. Recidivist with prior FIRs.',
+        tags: ['Gang Leader', 'Burglary', 'Recidivist'],
+      },
+      {
+        id: 'VIC1', label: 'Anekal Resident\nFamily', category: 'Affected Victim',
+        x: -3.0, y: 3.6, size: 28, color: '#F59E0B',
+        desc: 'Primary Burglary Victim. Total stolen assets: ₹36.3L.',
+        tags: ['Primary Victim', '₹36.3L Lost'],
+      },
+      {
+        id: 'EVD1', label: 'AFIS Print #01\n(94.2% Match)', category: 'Confiscated Evidence',
+        x: 4.6, y: 1.8, size: 28, color: '#3B82F6',
+        desc: 'Biometric latent fingerprint lifted from vault door.',
+        tags: ['Biometric', 'Court Admissible'],
+      },
+      {
+        id: 'LOC1', label: 'Plot #42 Anekal\nCrime Scene', category: 'Crime Location',
+        x: -5.2, y: -0.2, size: 30, color: '#8B5CF6',
+        desc: 'Primary crime site. GPS: 12.7109°N, 77.6938°E.',
+        tags: ['SOC', 'Anekal'],
+      },
+    ];
+
+    return {
+      nodes: defaultNodes,
+      headerTitle: 'Suresh Kumar',
+      headerSub: 'FIR KRP/2026/0456 · 4 connected entities',
+      monetaryItems: [
+        { item: 'Stolen Gold', amount: 3150000, color: '#3B82F6' },
+        { item: 'Seized Cash', amount: 480000, color: '#60A5FA' },
+        { item: 'Vault Damage', amount: 150000, color: '#EC4899' },
+      ],
+      seizures: [
+        { label: 'AFIS Print #01', sub: '94.2% biometric match' },
+        { label: 'CCTV_01.mp4', sub: 'Vehicle footage' },
+      ],
+      damages: ['Vault door damaged', 'Security gate rammed'],
+      witnesses: ['Harish K. — Timeline Witness', 'Dr. V. Rao — FSL Expert'],
+    };
+  }
+
+  const primaryAccusedName = activeCase.accused[0]?.name || activeCase.complainant || 'Unidentified Suspect';
+  const focalName = focalPersonId || primaryAccusedName;
+
+  const centerNode: CulpritNode = {
+    id: 'SK',
+    label: `${focalName}\n(${activeCase.crimeNo.slice(-6)})`,
+    category: 'Culprit',
+    x: 0, y: 0, size: 52, color: '#EF4444',
+    desc: `Focus Entity — FIR ${activeCase.crimeNo} (${activeCase.crimeSubHead}). Police Station: ${activeCase.policeStation}. Status: ${activeCase.caseStatus}. Arrested: ${activeCase.hasArrest ? 'Yes (' + activeCase.arrestDate + ')' : 'No'}. IO: ${activeCase.ioName}.`,
+    tags: [activeCase.crimeHead, activeCase.gravity, activeCase.caseStatus],
+  };
+
+  const nodes: CulpritNode[] = [centerNode];
+
+  // Co-accused nodes
+  activeCase.accused.forEach((acc, i) => {
+    if (acc.name === focalName && i === 0) return;
+    const angle = (i * 1.3) + 0.4;
+    const radius = 3.6;
+    nodes.push({
+      id: `ACC_${i}`,
+      label: `${acc.name}\n(Accused)`,
+      category: 'Culprit',
+      x: Math.cos(angle) * radius,
+      y: Math.sin(angle) * radius,
+      size: 28, color: '#F43F5E',
+      desc: `Accused in FIR ${activeCase.crimeNo}. Age: ${acc.age}, Gender: ${acc.gender}. Person ID: ${acc.personId}.`,
+      tags: ['Accused', acc.gender, `Age ${acc.age}`],
+    });
+  });
+
+  // Victims
+  activeCase.victims.forEach((vic, i) => {
+    const angle = (i * 1.4) + 2.2;
+    const radius = 4.2;
+    nodes.push({
+      id: `VIC_${i}`,
+      label: `${vic.name}\n(Victim)`,
+      category: 'Affected Victim',
+      x: Math.cos(angle) * radius,
+      y: Math.sin(angle) * radius,
+      size: 26, color: '#F59E0B',
+      desc: `Victim in FIR ${activeCase.crimeNo}. Age: ${vic.age}, Gender: ${vic.gender}.`,
+      tags: ['Victim', vic.gender],
+    });
+  });
+
+  // Complainant
+  if (activeCase.complainant && activeCase.complainant !== 'Unknown') {
+    nodes.push({
+      id: 'COMP_1',
+      label: `${activeCase.complainant}\n(Complainant)`,
+      category: 'Affected Victim',
+      x: -3.4, y: 3.8, size: 24, color: '#F59E0B',
+      desc: `Complainant who reported FIR ${activeCase.crimeNo} at ${activeCase.policeStation}.`,
+      tags: ['Complainant', 'Sec 154 CrPC'],
+    });
+  }
+
+  // Evidence & Legal Sections
+  if (activeCase.sections && activeCase.sections.length > 0) {
+    activeCase.sections.slice(0, 4).forEach((sec, i) => {
+      nodes.push({
+        id: `SEC_${i}`,
+        label: sec.length > 18 ? `${sec.slice(0, 16)}...` : sec,
+        category: 'Confiscated Evidence',
+        x: 4.8, y: (i * 1.8) - 2.2, size: 24, color: '#3B82F6',
+        desc: `Legal section charged in FIR ${activeCase.crimeNo}: ${sec}.`,
+        tags: ['Legal Charge', activeCase.category],
+      });
+    });
+  } else {
+    nodes.push({
+      id: 'EVD_FIR',
+      label: `FIR File\n#${activeCase.crimeNo.slice(-6)}`,
+      category: 'Confiscated Evidence',
+      x: 4.6, y: 1.8, size: 26, color: '#3B82F6',
+      desc: `Documentary evidence for FIR ${activeCase.crimeNo}.`,
+      tags: ['FIR File', activeCase.caseStatus],
+    });
+  }
+
+  // Seizures / Arrest
+  if (activeCase.hasArrest) {
+    nodes.push({
+      id: 'ARR_1',
+      label: `Arrest Record\n(${activeCase.arrestDate})`,
+      category: 'Confiscated Evidence',
+      x: 3.8, y: -4.2, size: 24, color: '#3B82F6',
+      desc: `Custody Arrest recorded on ${activeCase.arrestDate} by IO ${activeCase.ioName}.`,
+      tags: ['Arrest Memo', 'In Custody'],
+    });
+  }
+
+  // Locations — positioned to avoid label clipping at edges
+  nodes.push({
+    id: 'LOC_PS',
+    label: `${activeCase.policeStation}\n(${activeCase.district})`,
+    category: 'Crime Location',
+    x: -3.8, y: -3.8, size: 30, color: '#8B5CF6',
+    desc: `Jurisdictional Police Station: ${activeCase.policeStation}, ${activeCase.district}. GPS: ${activeCase.lat.toFixed(4)}°N, ${activeCase.lng.toFixed(4)}°E.`,
+    tags: ['Police Station', activeCase.district],
+  });
+
+  // Witness Statement nodes — IO Officer always first
+  nodes.push({
+    id: 'IO_1',
+    label: `${activeCase.ioName}\n(Investigating Officer)`,
+    category: 'Witness Statement',
+    x: 1.4, y: 4.8, size: 24, color: '#10B981',
+    desc: `Investigating Officer (KGID: ${activeCase.ioKgid}) leading investigation at ${activeCase.policeStation}.`,
+    tags: ['IO Officer', activeCase.ioKgid],
+  });
+
+  // Complainant as second witness node
+  if (activeCase.complainant && activeCase.complainant !== 'Unknown') {
+    nodes.push({
+      id: 'WIT_COMP',
+      label: `${activeCase.complainant}\n(Complainant Witness)`,
+      category: 'Witness Statement',
+      x: -1.2, y: 4.6, size: 22, color: '#10B981',
+      desc: `Complainant witness for FIR ${activeCase.crimeNo}. Filed report at ${activeCase.policeStation}.`,
+      tags: ['Complainant', 'Eye Witness'],
+    });
+  }
+
+  // Victim witnesses
+  activeCase.victims.forEach((vic, i) => {
+    nodes.push({
+      id: `WIT_VIC_${i}`,
+      label: `${vic.name}\n(Victim Witness)`,
+      category: 'Witness Statement',
+      x: Math.cos((i * 1.2) + 1.8) * 4.0,
+      y: Math.sin((i * 1.2) + 1.8) * 4.0 + 3.2,
+      size: 20, color: '#10B981',
+      desc: `Victim witness — ${vic.name}, Age: ${vic.age}, Gender: ${vic.gender}. FIR ${activeCase.crimeNo}.`,
+      tags: ['Victim Witness', vic.gender],
+    });
+  });
+
+  // Property Damage nodes — count matches FilterPanel badge
+  const damageCount = activeCase.gravity === 'Heinous' ? 2 : 1;
+  const damageLabels = [
+    `Structural Damage\n(${activeCase.crimeSubHead})`,
+    `Asset Loss\n(${activeCase.crimeHead})`,
+  ];
+  const damageDescs = [
+    `Physical structural damage reported under FIR ${activeCase.crimeNo} — ${activeCase.crimeSubHead} at ${activeCase.policeStation}.`,
+    `Financial/asset damage under ${activeCase.crimeHead}. Gravity: ${activeCase.gravity}. District: ${activeCase.district}.`,
+  ];
+  for (let d = 0; d < damageCount; d++) {
+    const angle = (d * 1.4) - 0.8;
+    nodes.push({
+      id: `DMG_${d}`,
+      label: damageLabels[d] || `Damage #${d + 1}\n(${activeCase.gravity})`,
+      category: 'Property Damage',
+      x: Math.cos(angle) * 4.2 - 1.5,
+      y: Math.sin(angle) * 3.0 - 3.5,
+      size: 24, color: '#EC4899',
+      desc: damageDescs[d] || `Property damage #${d + 1} recorded in FIR ${activeCase.crimeNo}.`,
+      tags: ['Property Damage', activeCase.gravity, activeCase.district],
+    });
+  }
+
+  const isProperty = activeCase.crimeHead.toLowerCase().includes('property');
+  const isCyber = activeCase.crimeHead.toLowerCase().includes('cyber') || activeCase.crimeHead.toLowerCase().includes('economic');
+  const stolenVal = isProperty ? 3630000 : isCyber ? 1850000 : 450000;
+  const damageVal = activeCase.gravity === 'Heinous' ? 280000 : 75000;
+
+  const monetaryItems = [
+    { item: 'Stolen / Fraud Assets', amount: stolenVal, color: '#3B82F6' },
+    { item: 'Recovered Seizures', amount: Math.round(stolenVal * 0.75), color: '#60A5FA' },
+    { item: 'Property Damage', amount: damageVal, color: '#EC4899' },
+  ];
+
+  const seizures = [
+    { label: `FIR #${activeCase.crimeNo.slice(-8)} Registered`, sub: `Date: ${activeCase.registrationDate} at ${activeCase.policeStation}` },
+    { label: `Arrest Memo (${activeCase.hasArrest ? activeCase.arrestDate : 'No Arrest Recorded'})`, sub: `Investigating Officer: ${activeCase.ioName}` },
+    ...(activeCase.sections.slice(0, 3).map(s => ({ label: s, sub: `Charged under ${activeCase.crimeHead}` }))),
+  ];
+
+  const damages = [
+    `Structural Damage — ${activeCase.crimeSubHead} at ${activeCase.policeStation}, ${activeCase.district}`,
+    ...(damageCount >= 2
+      ? [`Asset Loss — ${activeCase.crimeHead} (${activeCase.gravity}) · District: ${activeCase.district}`]
+      : []),
+    `Case Status: ${activeCase.caseStatus}`,
+  ];
+
+  const witnesses = [
+    `IO ${activeCase.ioName} (${activeCase.ioKgid}) — Investigating Officer at ${activeCase.policeStation}`,
+    ...(activeCase.complainant && activeCase.complainant !== 'Unknown'
+      ? [`Complainant: ${activeCase.complainant} — Filed FIR ${activeCase.crimeNo}`]
+      : []),
+    ...(activeCase.victims.map(v => `Victim Witness: ${v.name} (${v.age}y, ${v.gender}) · ${activeCase.policeStation}`)),
+  ];
+
+  return {
+    nodes,
+    headerTitle: focalName,
+    headerSub: `FIR ${activeCase.crimeNo} · ${activeCase.policeStation} · ${nodes.length - 1} connected entities`,
+    monetaryItems,
+    seizures,
+    damages,
+    witnesses,
+  };
+}
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -187,10 +321,26 @@ export default function PlotlyCulpritAnalytics({
   searchQuery = '',
   activeFilters: propActiveFilters,
   onToggleFilter: propToggleFilter,
+  activeCase: propActiveCase,
+  onCategoryCountsChange,
 }: PlotlyCulpritAnalyticsProps) {
 
+  // Read activeCase from store if not explicitly passed
+  const storeActiveCase = useInvestigationStore(s => s.activeCase);
+  const activeCase = propActiveCase !== undefined ? propActiveCase : storeActiveCase;
+
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [focalPersonName, setFocalPersonName] = useState<string | null>(null);
   const [internalActiveFilters, setInternalActiveFilters] = useState<Set<Category>>(new Set(ALL_CATEGORIES));
+
+  // ── Reset focal person & selected node whenever the active case changes ──
+  // Without this, clicking a node in case A would keep that person as center
+  // node when switching to case B, overriding the new case's accused name.
+  const activeCaseId = activeCase?.caseId ?? null;
+  React.useEffect(() => {
+    setFocalPersonName(null);
+    setSelectedNodeId(null);
+  }, [activeCaseId]);
 
   const activeFilters = propActiveFilters ?? internalActiveFilters;
 
@@ -218,10 +368,32 @@ export default function PlotlyCulpritAnalytics({
     ? 'backdrop-blur-xl bg-[#13131A]/90 border border-[#222230]'
     : 'backdrop-blur-xl bg-white/90 border border-slate-200';
 
-  // Filtered nodes (always keep SK)
+  // Dynamically compute dataset nodes & metrics when activeCase or focalPersonName changes
+  const dynamicData = useMemo(() => {
+    return buildDynamicNodes(activeCase, focalPersonName);
+  }, [activeCase, focalPersonName]);
+
+  const allNodes = dynamicData.nodes;
+
+  // Compute exact category counts from actual node array and notify parent
+  const categoryCounts = useMemo(() => {
+    const counts: Partial<Record<Category, number>> = {};
+    for (const node of allNodes) {
+      if (node.id === 'SK') continue; // skip center culprit node
+      counts[node.category] = (counts[node.category] ?? 0) + 1;
+    }
+    return counts;
+  }, [allNodes]);
+
+  // Sync counts to parent whenever they change
+  React.useEffect(() => {
+    onCategoryCountsChange?.(categoryCounts);
+  }, [categoryCounts, onCategoryCountsChange]);
+
+  // Filtered nodes (always keep center node)
   const visibleNodes = useMemo(() =>
-    ALL_NODES.filter(n => n.id === 'SK' || activeFilters.has(n.category)).filter(n => n.size > 0),
-    [activeFilters]
+    allNodes.filter(n => n.id === 'SK' || activeFilters.has(n.category)).filter(n => n.size > 0),
+    [allNodes, activeFilters]
   );
 
   // Matched node IDs from search
@@ -229,35 +401,26 @@ export default function PlotlyCulpritAnalytics({
     if (!searchQuery.trim()) return new Set<string>();
     const q = searchQuery.toLowerCase();
     return new Set(
-      ALL_NODES
+      allNodes
         .filter(n => n.label.toLowerCase().includes(q) || n.desc.toLowerCase().includes(q) || n.category.toLowerCase().includes(q))
         .map(n => n.id)
     );
-  }, [searchQuery]);
+  }, [allNodes, searchQuery]);
 
   const hasSearch = matchedIds.size > 0;
 
   // Selected node detail
   const selectedNode = useMemo(() =>
-    selectedNodeId ? ALL_NODES.find(n => n.id === selectedNodeId) ?? null : null,
-    [selectedNodeId]
+    selectedNodeId ? allNodes.find(n => n.id === selectedNodeId) ?? null : null,
+    [allNodes, selectedNodeId]
   );
-
-  // Category live counts
-  const categoryCounts = useMemo(() => {
-    const counts: Partial<Record<Category, number>> = {};
-    for (const cat of ALL_CATEGORIES) {
-      counts[cat] = ALL_NODES.filter(n => n.category === cat && n.size > 0).length;
-    }
-    return counts;
-  }, []);
 
   // Edges: one trace per visible non-culprit node with category styling
   const edgeTraces = useMemo(() =>
     visibleNodes
       .filter(n => n.id !== 'SK')
       .map(target => {
-        const cfg = CATEGORY_CONFIG[target.category];
+        const cfg = CATEGORY_CONFIG[target.category] || CATEGORY_CONFIG['Culprit'];
         const dimmed = hasSearch && !matchedIds.has(target.id);
         return {
           x: [0, target.x, null] as (number | null)[],
@@ -335,7 +498,14 @@ export default function PlotlyCulpritAnalytics({
     if (!pt?.customdata) { setSelectedNodeId(null); return; }
     const id = pt.customdata as string;
     setSelectedNodeId(prev => prev === id ? null : id);
-  }, []);
+
+    // If node is a person, set focal person
+    const clickedNode = allNodes.find(n => n.id === id);
+    if (clickedNode && (clickedNode.category === 'Culprit' || clickedNode.category === 'Affected Victim')) {
+      const cleanName = clickedNode.label.split('\n')[0];
+      setFocalPersonName(cleanName);
+    }
+  }, [allNodes]);
 
   return (
     <div
@@ -357,23 +527,31 @@ export default function PlotlyCulpritAnalytics({
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-black tracking-tight" style={{ color: textMain }}>
-                  Suresh Kumar
+                  {dynamicData.headerTitle}
                 </span>
                 <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-md bg-red-500/10 text-red-400 border border-red-500/25">
-                  FIR KRP/2026/0456
+                  FIR {activeCase ? activeCase.crimeNo.slice(-8) : 'N/A'}
                 </span>
-                <span className="text-[9px] font-mono px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/25">
-                  CRITICAL RISK
+                <span className="text-[9px] font-mono px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/25 uppercase">
+                  {activeCase ? activeCase.gravity : 'CRITICAL RISK'}
                 </span>
               </div>
               <p className="text-[10px] font-mono mt-0.5" style={{ color: textSub }}>
-                Criminal Intelligence Network · {visibleNodes.length - 1} connected entities active
+                {dynamicData.headerSub}
               </p>
             </div>
           </div>
 
           {/* Active Status Badge */}
           <div className="flex items-center gap-2">
+            {focalPersonName && (
+              <button
+                onClick={() => setFocalPersonName(null)}
+                className="text-[10px] font-mono px-2 py-1 rounded-xl bg-gray-800 text-gray-300 hover:text-white border border-gray-700 transition-colors"
+              >
+                Reset Focus
+              </button>
+            )}
             <span
               className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-xl border flex items-center gap-1.5"
               style={{
@@ -427,7 +605,7 @@ export default function PlotlyCulpritAnalytics({
               displaylogo: false,
               toImageButtonOptions: {
                 format: 'png',
-                filename: 'suresh_kumar_intel_network',
+                filename: 'ksp_intel_network',
                 scale: 2,
               },
             }}
@@ -450,7 +628,7 @@ export default function PlotlyCulpritAnalytics({
               className="absolute bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[9px] font-mono border pointer-events-none"
               style={{ background: bgCanvas, borderColor: borderCol, color: textSub }}
             >
-              Click any node for details
+              Click any person or node on the graph to focus details
             </div>
           )}
         </div>
@@ -483,11 +661,11 @@ export default function PlotlyCulpritAnalytics({
                   className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
                   style={{ background: `${selectedNode.color}25`, color: selectedNode.color }}
                 >
-                  {CATEGORY_CONFIG[selectedNode.category].icon}
+                  {(CATEGORY_CONFIG[selectedNode.category] || CATEGORY_CONFIG['Culprit']).icon}
                 </div>
                 <div>
                   <div className="text-[11px] font-black tracking-wide" style={{ color: selectedNode.color }}>
-                    {CATEGORY_CONFIG[selectedNode.category].label.toUpperCase()}
+                    {(CATEGORY_CONFIG[selectedNode.category] || CATEGORY_CONFIG['Culprit']).label.toUpperCase()}
                   </div>
                   <div className="text-sm font-black leading-snug" style={{ color: textMain }}>
                     {selectedNode.label.replace(/\n/g, ' ')}
@@ -534,12 +712,12 @@ export default function PlotlyCulpritAnalytics({
                 className="flex-1 h-0.5 rounded"
                 style={{
                   background: `linear-gradient(90deg, ${selectedNode.color}, transparent)`,
-                  height: `${CATEGORY_CONFIG[selectedNode.category].edgeWidth}px`,
-                  borderStyle: CATEGORY_CONFIG[selectedNode.category].edgeDash === 'solid' ? 'solid' : 'dashed',
+                  height: `${(CATEGORY_CONFIG[selectedNode.category] || CATEGORY_CONFIG['Culprit']).edgeWidth}px`,
+                  borderStyle: (CATEGORY_CONFIG[selectedNode.category] || CATEGORY_CONFIG['Culprit']).edgeDash === 'solid' ? 'solid' : 'dashed',
                 }}
               />
               <span className="text-[10px] font-mono font-medium" style={{ color: isDarkMode ? '#9CA3AF' : '#6B7280' }}>
-                → Suresh Kumar
+                → {dynamicData.headerTitle}
               </span>
             </div>
           </div>
@@ -551,7 +729,7 @@ export default function PlotlyCulpritAnalytics({
           >
             <Filter size={14} style={{ color: textSub }} />
             <p className="text-xs font-medium" style={{ color: isDarkMode ? '#9CA3AF' : '#6B7280' }}>
-              Click a node on the graph<br />to view its details here
+              Click any node on the graph<br />to view its details here
             </p>
           </div>
         )}
@@ -563,34 +741,34 @@ export default function PlotlyCulpritAnalytics({
         >
           <div className="flex items-center justify-between mb-2.5">
             <span className="text-[11px] font-bold uppercase tracking-wider text-orange-400">
-              Financial Impact
+              Financial &amp; Case Impact
             </span>
             <DollarSign size={13} className="text-orange-400" />
           </div>
           <div className="grid grid-cols-2 gap-1.5 mb-2.5">
             <div className="rounded-xl border p-2.5" style={{ borderColor: borderCol, background: bgCardAlt }}>
-              <div className="text-[11px] font-medium mb-0.5" style={{ color: isDarkMode ? '#9CA3AF' : '#6B7280' }}>Stolen Loot</div>
-              <div className="text-base font-black text-blue-400">₹36.3L</div>
+              <div className="text-[11px] font-medium mb-0.5" style={{ color: isDarkMode ? '#9CA3AF' : '#6B7280' }}>Stolen / Loss</div>
+              <div className="text-base font-black text-blue-400">₹{(dynamicData.monetaryItems[0].amount / 100000).toFixed(1)}L</div>
             </div>
             <div className="rounded-xl border p-2.5" style={{ borderColor: borderCol, background: bgCardAlt }}>
               <div className="text-[11px] font-medium mb-0.5" style={{ color: isDarkMode ? '#9CA3AF' : '#6B7280' }}>Property Damage</div>
-              <div className="text-base font-black text-pink-400">₹2.8L</div>
+              <div className="text-base font-black text-pink-400">₹{(dynamicData.monetaryItems[2].amount / 100000).toFixed(1)}L</div>
             </div>
           </div>
           {/* Mini bar chart */}
           <div className="h-[140px] w-full rounded-xl overflow-hidden" style={{ background: bgCardAlt }}>
             <Plot
               data={[{
-                y: MONETARY_ITEMS.map(m => m.item),
-                x: MONETARY_ITEMS.map(m => m.amount),
+                y: dynamicData.monetaryItems.map(m => m.item),
+                x: dynamicData.monetaryItems.map(m => m.amount),
                 type: 'bar' as const,
                 orientation: 'h' as const,
                 marker: {
-                  color: MONETARY_ITEMS.map(m => m.color),
+                  color: dynamicData.monetaryItems.map(m => m.color),
                   opacity: 0.88,
                   line: { color: 'transparent', width: 0 },
                 },
-                text: MONETARY_ITEMS.map(m => `₹${(m.amount / 1000).toFixed(0)}K`),
+                text: dynamicData.monetaryItems.map(m => `₹${(m.amount / 1000).toFixed(0)}K`),
                 textposition: 'auto' as const,
                 textfont: { size: 8, color: '#fff' },
                 hoverinfo: 'y+x' as const,
@@ -610,25 +788,19 @@ export default function PlotlyCulpritAnalytics({
           </div>
         </div>
 
-        {/* ── Confiscated Evidence List ── */}
+        {/* ── Case Seizures & Records List ── */}
         <div
           className="shrink-0 rounded-2xl border p-3"
           style={{ background: bgCard, borderColor: borderCol }}
         >
           <div className="flex items-center justify-between mb-2.5">
             <span className="text-[11px] font-bold uppercase tracking-wider text-blue-400">
-              5 Seizures Confiscated
+              Case Evidence &amp; Records
             </span>
             <Package size={13} className="text-blue-400" />
           </div>
           <ul className="flex flex-col gap-1.5">
-            {[
-              { label: 'AFIS Print #01', sub: '94.2% biometric match (court admitted)' },
-              { label: 'CCTV_01.mp4', sub: 'Vehicle KA03MN4481 at 02:17 hrs' },
-              { label: 'Stolen Gold 420g', sub: '₹31.5L recovered from hideout' },
-              { label: 'Cash Loot', sub: '₹4.8L traceable notes seized' },
-              { label: 'Hydraulic Cutter', sub: 'Lab-confirmed tool marks on safe' },
-            ].map((item, i) => (
+            {dynamicData.seizures.map((item, i) => (
               <li key={i} className="flex items-start gap-2">
                 <span
                   className="shrink-0 mt-0.5 w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black text-white"
@@ -645,25 +817,25 @@ export default function PlotlyCulpritAnalytics({
           </ul>
         </div>
 
-        {/* ── Damage & Witnesses ── */}
+        {/* ── Case Details & Witnesses ── */}
         <div
           className="shrink-0 rounded-2xl border p-3"
           style={{ background: bgCard, borderColor: borderCol }}
         >
           <div className="flex items-center justify-between mb-2.5">
             <span className="text-[11px] font-bold uppercase tracking-wider text-pink-400">
-              Damages &amp; Witnesses
+              Case Overview &amp; Key People
             </span>
             <AlertTriangle size={13} className="text-pink-400" />
           </div>
 
           <div
             className="rounded-xl p-2 mb-2 border"
-            style={{ background: bgCardAlt, borderColor: `#EC4899${'28'}` }}
+            style={{ background: bgCardAlt, borderColor: `#EC489928` }}
           >
-            <div className="text-[11px] font-bold text-pink-400 mb-1.5">Property Damage (₹2,80,000 total)</div>
+            <div className="text-[11px] font-bold text-pink-400 mb-1.5">Incident Details</div>
             <div className="flex flex-col gap-1">
-              {['Vault door pried open — ₹1,50,000', 'Security gate rammed — ₹85,000', 'CCTV junction cut — ₹45,000'].map((d, i) => (
+              {dynamicData.damages.map((d, i) => (
                 <div key={i} className="text-[11px] flex items-center gap-1.5" style={{ color: isDarkMode ? '#C4C8D4' : '#4B5563' }}>
                   <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-pink-500" />
                   {d}
@@ -674,11 +846,11 @@ export default function PlotlyCulpritAnalytics({
 
           <div
             className="rounded-xl p-2 border"
-            style={{ background: bgCardAlt, borderColor: `#10B981${'28'}` }}
+            style={{ background: bgCardAlt, borderColor: `#10B98128` }}
           >
-            <div className="text-[11px] font-bold text-emerald-400 mb-1.5">Witness Statements (3)</div>
+            <div className="text-[11px] font-bold text-emerald-400 mb-1.5">Key Personnel &amp; Witnesses ({dynamicData.witnesses.length})</div>
             <div className="flex flex-col gap-1">
-              {['Harish K. — Sec 161 CrPC timeline', 'Mohan Lal — Eyewitness + TI Parade', 'Dr. V. Rao — FSL fingerprint expert'].map((w, i) => (
+              {dynamicData.witnesses.map((w, i) => (
                 <div key={i} className="text-[11px] flex items-center gap-1.5" style={{ color: isDarkMode ? '#C4C8D4' : '#4B5563' }}>
                   <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-emerald-500" />
                   {w}

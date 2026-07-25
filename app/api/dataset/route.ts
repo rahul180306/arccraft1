@@ -33,7 +33,8 @@ export async function GET() {
     }
 
     if (needsExtract) {
-      await execAsync(`python3 "${scriptPath}"`, { cwd: rootDir, timeout: 30000 });
+      const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
+      await execAsync(`${pythonCmd} "${scriptPath}"`, { cwd: rootDir, timeout: 30000 });
     }
 
     const raw = JSON.parse(await fs.promises.readFile(jsonPath, 'utf-8'));

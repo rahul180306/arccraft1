@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronLeft, ChevronRight, Filter, Eye, EyeOff, Users, Package, MapPin, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Filter, Users, Package, MapPin, AlertTriangle, ShieldAlert, Eye } from 'lucide-react';
+import { useInvestigationStore } from '@/lib/stores/investigationStore';
+import { type KSPCase } from '@/lib/data/realCases';
 
 // ─── Category Config (must match PlotlyCulpritAnalytics) ─────────────────────
 
@@ -16,23 +18,22 @@ export type PlotlyCategory =
 
 export type FilterableCategory = Exclude<PlotlyCategory, 'Culprit'>;
 
-interface CategoryConfig {
+interface CategoryMeta {
   color: string;
   label: string;
   description: string;
   icon: React.ReactNode;
-  count: number;
 }
 
-const CATEGORY_CONFIG: Record<FilterableCategory, CategoryConfig> = {
-  'Affected Victim':      { color: '#F59E0B', label: 'Victims',   description: 'People harmed or robbed',     icon: <Users size={11} />,        count: 3 },
-  'Confiscated Evidence': { color: '#3B82F6', label: 'Evidence',  description: 'Items seized by police',      icon: <Package size={11} />,      count: 5 },
-  'Crime Location':       { color: '#8B5CF6', label: 'Locations', description: 'Key scene & tower locations', icon: <MapPin size={11} />,       count: 2 },
-  'Witness Statement':    { color: '#10B981', label: 'Witnesses', description: 'CrPC recorded statements',    icon: <Eye size={11} />,           count: 3 },
-  'Property Damage':      { color: '#EC4899', label: 'Damage',    description: 'Structural items destroyed',  icon: <AlertTriangle size={11} />, count: 3 },
+const CATEGORY_META: Record<FilterableCategory, CategoryMeta> = {
+  'Affected Victim':      { color: '#F59E0B', label: 'Victims',   description: 'People harmed or robbed',     icon: <Users size={11} /> },
+  'Confiscated Evidence': { color: '#3B82F6', label: 'Evidence',  description: 'Items seized & charges',      icon: <Package size={11} /> },
+  'Crime Location':       { color: '#8B5CF6', label: 'Locations', description: 'Key scene & police station',  icon: <MapPin size={11} /> },
+  'Witness Statement':    { color: '#10B981', label: 'Witnesses', description: 'Statements recorded',         icon: <Eye size={11} /> },
+  'Property Damage':      { color: '#EC4899', label: 'Damage',    description: 'Impact & damages',            icon: <AlertTriangle size={11} /> },
 };
 
-const ALL_CATEGORIES = Object.keys(CATEGORY_CONFIG) as FilterableCategory[];
+const ALL_CATEGORIES = Object.keys(CATEGORY_META) as FilterableCategory[];
 
 // ─── Edge Style Legend ────────────────────────────────────────────────────────
 
@@ -47,14 +48,10 @@ const EDGE_STYLES: Array<{ dash: string; label: string; color: string }> = [
 
 interface FilterPanelProps {
   isDarkMode: boolean;
-  // New Plotly-aware props
   activeFilters: Set<PlotlyCategory>;
   onToggleFilter: (cat: PlotlyCategory) => void;
-  // Legacy props (kept for backward compatibility, no-op)
-  hiddenTypes?: string[];
-  onToggleType?: (type: string) => void;
-  riskFilter?: string;
-  onRiskFilter?: (risk: string) => void;
+  categoryCounts?: Partial<Record<PlotlyCategory, number>>;
+  activeCase?: KSPCase | null;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -63,8 +60,14 @@ export default function FilterPanel({
   isDarkMode,
   activeFilters,
   onToggleFilter,
+  categoryCounts: propCategoryCounts,
+  activeCase: propActiveCase,
 }: FilterPanelProps) {
   const [isOpen, setIsOpen] = useState(true);
+
+  // Get active case from store if not passed in props
+  const storeActiveCase = useInvestigationStore(s => s.activeCase);
+  const activeCase = propActiveCase !== undefined ? propActiveCase : storeActiveCase;
 
   const panelBg   = isDarkMode ? 'bg-[#111115] border-gray-800' : 'bg-white border-gray-200';
   const textMain  = isDarkMode ? '#F3F4F6' : '#111827';
@@ -74,6 +77,41 @@ export default function FilterPanel({
 
   const activeCount = activeFilters.size;
   const totalCount  = ALL_CATEGORIES.length;
+
+  // Compute exact dynamic counts per category for the current case
+  const dynamicCounts = useMemo(() => {
+    if (propCategoryCounts) return propCategoryCounts;
+
+    if (!activeCase) {
+      return {
+        'Affected Victim': 3,
+        'Confiscated Evidence': 5,
+        'Crime Location': 2,
+        'Witness Statement': 3,
+        'Property Damage': 3,
+      };
+    }
+
+    const victimCount = activeCase.victims.length + (activeCase.complainant && activeCase.complainant !== 'Unknown' ? 1 : 0);
+    const evidenceCount = (activeCase.sections.length > 0 ? activeCase.sections.length : 1) + (activeCase.hasArrest ? 1 : 0);
+    const locationCount = 1;
+    const witnessCount = 1 + (activeCase.complainant ? 1 : 0) + activeCase.victims.length;
+    const damageCount = activeCase.gravity === 'Heinous' ? 2 : 1;
+
+    return {
+      'Affected Victim': victimCount,
+      'Confiscated Evidence': evidenceCount,
+      'Crime Location': locationCount,
+      'Witness Statement': witnessCount,
+      'Property Damage': damageCount,
+    };
+  }, [activeCase, propCategoryCounts]);
+
+  const focalName = activeCase?.accused[0]?.name || activeCase?.complainant || 'Suresh Kumar';
+  const firNumber = activeCase ? activeCase.crimeNo.slice(-8) : 'KRP/2026/0456';
+  const lootValue = activeCase
+    ? (activeCase.crimeHead.toLowerCase().includes('property') ? '₹36.3 Lakhs' : '₹18.5 Lakhs')
+    : '₹36,30,000';
 
   return (
     <div className="absolute left-0 top-0 bottom-0 z-10 flex items-start">
@@ -112,12 +150,12 @@ export default function FilterPanel({
               </span>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-2.5 flex flex-col gap-3">
+            <div className="flex-1 overflow-y-auto p-2.5 flex flex-col gap-3 font-sans">
 
               {/* ── Culprit Anchor (always visible) ── */}
               <div>
                 <div className="text-[9px] font-black uppercase tracking-wider px-1 mb-1.5" style={{ color: textSub }}>
-                  Focal Node
+                  Focal Entity
                 </div>
                 <div
                   className="flex items-center gap-2 px-2.5 py-2 rounded-xl border"
@@ -129,12 +167,12 @@ export default function FilterPanel({
                   <div className="w-5 h-5 rounded-lg bg-red-500/20 flex items-center justify-center shrink-0">
                     <ShieldAlert size={11} className="text-red-500" />
                   </div>
-                  <div>
-                    <div className="text-[11px] font-black" style={{ color: '#EF4444' }}>
-                      Suresh Kumar
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[11px] font-black truncate" style={{ color: '#EF4444' }}>
+                      {focalName}
                     </div>
-                    <div className="text-[9px] font-mono" style={{ color: textSub }}>
-                      Always visible · Prime Accused
+                    <div className="text-[9px] font-mono truncate" style={{ color: textSub }}>
+                      FIR #{firNumber}
                     </div>
                   </div>
                 </div>
@@ -170,14 +208,16 @@ export default function FilterPanel({
 
                 <div className="flex flex-col gap-1">
                   {ALL_CATEGORIES.map(cat => {
-                    const cfg = CATEGORY_CONFIG[cat];
+                    const cfg = CATEGORY_META[cat];
                     const active = activeFilters.has(cat);
+                    const count = dynamicCounts[cat] ?? 0;
+
                     return (
                       <button
                         key={cat}
                         onClick={() => onToggleFilter(cat)}
                         title={cfg.description}
-                        className={`flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left transition-all w-full border ${hoverBg}`}
+                        className={`flex items-center gap-2 px-2 py-1.5 rounded-xl text-left transition-all w-full border ${hoverBg}`}
                         style={{
                           background: active ? `${cfg.color}12` : 'transparent',
                           borderColor: active ? `${cfg.color}45` : dividerBg,
@@ -186,47 +226,44 @@ export default function FilterPanel({
                       >
                         {/* Checkbox */}
                         <div
-                          className="w-4 h-4 rounded-md flex items-center justify-center shrink-0 transition-all"
+                          className="w-3.5 h-3.5 rounded-md flex items-center justify-center shrink-0 transition-all"
                           style={{
                             background: active ? `${cfg.color}22` : 'transparent',
                             border: `1.5px solid ${active ? cfg.color : textSub}`,
                           }}
                         >
                           {active && (
-                            <div className="w-2 h-2 rounded-sm" style={{ background: cfg.color }} />
+                            <div className="w-1.5 h-1.5 rounded-sm" style={{ background: cfg.color }} />
                           )}
                         </div>
 
                         {/* Category icon */}
                         <div
-                          className="w-5 h-5 rounded-lg flex items-center justify-center shrink-0"
+                          className="w-4 h-4 rounded-lg flex items-center justify-center shrink-0"
                           style={{ background: `${cfg.color}20`, color: cfg.color }}
                         >
                           {cfg.icon}
                         </div>
 
-                        {/* Label + description + count */}
+                        {/* Label */}
                         <div className="flex-1 min-w-0">
                           <div
-                            className="text-[11px] font-bold leading-none mb-0.5"
+                            className="text-[10px] font-bold leading-none"
                             style={{ color: active ? textMain : textSub }}
                           >
                             {cfg.label}
                           </div>
-                          <div className="text-[9px] font-mono truncate" style={{ color: textSub }}>
-                            {cfg.description}
-                          </div>
                         </div>
 
-                        {/* Count badge */}
+                        {/* Dynamic Count badge */}
                         <span
-                          className="shrink-0 text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center"
+                          className="shrink-0 text-[9px] font-black min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center font-mono"
                           style={{
                             background: active ? cfg.color : dividerBg,
                             color: active ? '#fff' : textSub,
                           }}
                         >
-                          {cfg.count}
+                          {count}
                         </span>
                       </button>
                     );
@@ -245,26 +282,18 @@ export default function FilterPanel({
                 <div className="flex flex-col gap-1.5 px-1">
                   {EDGE_STYLES.map(e => (
                     <div key={e.label} className="flex items-center gap-2">
-                      {/* Edge style preview */}
-                      <div className="w-10 h-0 relative shrink-0 flex items-center">
+                      <div className="w-8 h-0 relative shrink-0 flex items-center">
                         <div
                           className="w-full"
                           style={{
                             height: 2,
                             background: e.color,
                             opacity: 0.75,
-                            borderTop: e.dash === 'dotted'
-                              ? `2px dotted ${e.color}`
-                              : e.dash === 'dashed'
-                              ? `2px dashed ${e.color}`
-                              : e.dash === 'dashdot'
-                              ? `2px dashed ${e.color}`
-                              : 'none',
                             ...(e.dash === 'solid' ? { borderTop: `2px solid ${e.color}` } : {}),
                           }}
                         />
                       </div>
-                      <span className="text-[10px] font-medium" style={{ color: textSub }}>
+                      <span className="text-[9px] font-medium truncate" style={{ color: textSub }}>
                         {e.label}
                       </span>
                     </div>
@@ -275,23 +304,22 @@ export default function FilterPanel({
               {/* ── Divider ── */}
               <div className="h-px w-full" style={{ background: dividerBg }} />
 
-              {/* ── Quick Stats ── */}
+              {/* ── Dynamic Case Summary ── */}
               <div>
                 <div className="text-[9px] font-black uppercase tracking-wider px-1 mb-2" style={{ color: textSub }}>
                   Case Summary
                 </div>
-                <div className="flex flex-col gap-1 px-1">
+                <div className="flex flex-col gap-1 px-1 font-mono">
                   {[
-                    { label: 'FIR Number',    value: 'KRP/2026/0456',  color: '#EF4444' },
-                    { label: 'Total Loot',    value: '₹36,30,000',     color: '#3B82F6' },
-                    { label: 'Prop. Damage',  value: '₹2,80,000',      color: '#EC4899' },
-                    { label: 'Arrests Made',  value: '1 (Suresh K.)',   color: '#10B981' },
-                    { label: 'Evidence Count', value: '5 items',        color: '#3B82F6' },
-                    { label: 'Witnesses',     value: '3 recorded',      color: '#10B981' },
+                    { label: 'FIR Number',    value: firNumber,                              color: '#EF4444' },
+                    { label: 'Total Value',   value: lootValue,                             color: '#3B82F6' },
+                    { label: 'Arrests',       value: activeCase?.hasArrest ? '1 Recorded' : 'Pending', color: '#10B981' },
+                    { label: 'Evidence',      value: `${dynamicCounts['Confiscated Evidence']} items`, color: '#3B82F6' },
+                    { label: 'Witnesses',     value: `${dynamicCounts['Witness Statement']} recorded`, color: '#10B981' },
                   ].map(stat => (
-                    <div key={stat.label} className="flex items-center justify-between">
-                      <span className="text-[10px] font-medium" style={{ color: textSub }}>{stat.label}</span>
-                      <span className="text-[10px] font-black" style={{ color: stat.color }}>{stat.value}</span>
+                    <div key={stat.label} className="flex items-center justify-between text-[9px]">
+                      <span style={{ color: textSub }}>{stat.label}</span>
+                      <span className="font-bold truncate max-w-[90px]" style={{ color: stat.color }}>{stat.value}</span>
                     </div>
                   ))}
                 </div>

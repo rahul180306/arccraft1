@@ -531,14 +531,14 @@ export default function InvestigationsWorkspace() {
               <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
                 {/* Left Side: Merged Case Intelligence Details (7 Cols) */}
                 <div className="md:col-span-7 flex flex-col gap-4 border-b md:border-b-0 md:border-r pb-5 md:pb-0 md:pr-6 border-gray-200 dark:border-gray-800">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
                       <span className="w-2.5 h-2.5 rounded-full bg-[#FF5A1F]" />
-                      <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-500 dark:text-gray-400">
+                      <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-500 dark:text-gray-400 truncate" style={{ maxWidth: 'calc(100% - 80px)' }}>
                         CASE MASTER CONTROL PANEL
                       </h3>
                     </div>
-                    <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-[#FF5A1F]/10 text-[#FF5A1F] border border-[#FF5A1F]/20 font-extrabold">
+                    <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-[#FF5A1F]/10 text-[#FF5A1F] border border-[#FF5A1F]/20 font-extrabold whitespace-nowrap">
                       {currentCase.crimeType}
                     </span>
                   </div>
@@ -697,31 +697,33 @@ export default function InvestigationsWorkspace() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
                 {/* Box 1: Contradiction Alert Box */}
-                <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 flex flex-col gap-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-extrabold text-red-700 dark:text-red-500 flex items-center gap-1.5">
+                <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 flex flex-col gap-3 self-start">
+                  <div className="flex items-start justify-between gap-2 flex-wrap">
+                    <span className="text-xs font-extrabold text-red-700 dark:text-red-500 flex items-center gap-1.5 shrink-0">
                       <AlertTriangle size={15} /> CONTRADICTION DETECTED
                     </span>
-                    <span className="text-[10px] font-mono font-extrabold bg-red-500/20 text-red-700 dark:text-red-400 px-2 py-0.5 rounded-full border border-red-500/30">
+                    <span className="text-[10px] font-mono font-extrabold bg-red-500/20 text-red-700 dark:text-red-400 px-2 py-0.5 rounded-full border border-red-500/30 shrink-0">
                       94.8% Confidence
                     </span>
                   </div>
                   <p className="text-xs text-slate-700 dark:text-gray-200 leading-relaxed font-sans">
                     Alibi Statement by Accused <strong>Suresh K.</strong> claims being in Hoskote at 11:30 PM, but CCTV Exit Gate video (#E-01) matches vehicle KA-03-MN-4481 at KR Puram underpass at 11:42 PM.
                   </p>
-                  <span className="text-[9px] text-slate-500 dark:text-gray-400 font-mono mt-1">Detected on: 18 Jul 2025, 02:15 PM</span>
+                  <div className="pt-2 border-t border-red-500/20">
+                    <span className="text-[10px] text-slate-500 dark:text-gray-400 font-mono block">Detected on: 18 Jul 2025, 02:15 PM</span>
+                  </div>
                 </div>
 
                 {/* Box 2: Recommendation List */}
                 <div className="lg:col-span-2 p-4 rounded-xl bg-purple-500/10 border border-purple-500/30 flex flex-col gap-4">
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
                     <span className="text-xs font-extrabold text-purple-700 dark:text-purple-400 flex items-center gap-1.5">
                       <Zap size={15} /> RECOMMENDED INVESTIGATION ACTIONS
                     </span>
                     {selectedRecommendation && (
-                      <span className="text-[10px] font-mono font-extrabold bg-purple-500/20 text-purple-700 dark:text-purple-400 px-2 py-0.5 rounded-full border border-purple-500/30">
+                      <span className="text-[10px] font-mono font-extrabold bg-purple-500/20 text-purple-700 dark:text-purple-400 px-2 py-0.5 rounded-full border border-purple-500/30 shrink-0">
                         {selectedRecommendation?.confidence} Lead Confidence
                       </span>
                     )}
@@ -734,9 +736,9 @@ export default function InvestigationsWorkspace() {
                         onClick={() => setSelectedRecommendationId(rec.id)}
                         className={`text-left p-3 rounded-2xl border transition-all ${selectedRecommendationId === rec.id ? 'border-purple-500/60 bg-purple-500/10' : 'border-transparent bg-white dark:bg-[#111827]'}`}
                       >
-                        <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
                           <span className="font-semibold text-sm text-slate-900 dark:text-white">{rec?.title}</span>
-                          <span className="text-[10px] font-bold text-purple-700 dark:text-purple-500">{rec?.confidence}</span>
+                          <span className="text-[10px] font-bold text-purple-700 dark:text-purple-500 shrink-0">{rec?.confidence}</span>
                         </div>
                         <p className="text-[10px] text-slate-500 dark:text-gray-400 mt-2">{rec?.why}</p>
                       </button>
@@ -744,7 +746,7 @@ export default function InvestigationsWorkspace() {
                   </div>
 
                   <div className="rounded-2xl border border-purple-500/20 bg-slate-50 dark:bg-[#111827] p-3 text-xs text-slate-700 dark:text-gray-200">
-                    <div className="flex items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
                       <span className="font-bold">Why this Recommendation?</span>
                       <span className="text-[10px] font-mono text-purple-700 dark:text-purple-500">Selected action details</span>
                     </div>
@@ -766,6 +768,7 @@ export default function InvestigationsWorkspace() {
                   </div>
                 </div>
               </div>
+
             </motion.div>
 
             {/* ROW 4: RECENT EVIDENCE WITH CHAIN OF CUSTODY BADGES (P0 & P1) */}
