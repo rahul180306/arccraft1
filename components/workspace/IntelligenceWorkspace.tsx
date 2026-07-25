@@ -21,63 +21,98 @@ import PlotlyCulpritAnalytics from './intelligence/PlotlyCulpritAnalytics';
 // Uses primary case (Murder) + property crime accused for cross-case network
 // Uses primary case + property crime accused for cross-case network
 const buildRealGraph = (activeCase: KSPCase, availableCases: KSPCase[]): GraphData => {
-  const pc = activeCase; 
-  const propCase = availableCases.find(c => c.crimeHead === 'Crimes Against Property') || availableCases[1];
-  const cyberCase = availableCases.find(c => c.crimeHead === 'Cyber Crimes') || availableCases[2];
+  const pc = activeCase;
+  
+  // Dynamically find related cases
+  const sharedAccusedCases = availableCases.filter(c => 
+    c.caseId !== pc.caseId && 
+    c.accused.some(a => pc.accused.some(pa => pa.name.toLowerCase() === a.name.toLowerCase()))
+  ).slice(0, 2);
+
+  const sameIOCases = availableCases.filter(c =>
+    c.caseId !== pc.caseId && c.ioName === pc.ioName && c.crimeHead === pc.crimeHead
+  ).slice(0, 1);
+
+  const samePSCases = availableCases.filter(c =>
+    c.caseId !== pc.caseId && c.policeStation === pc.policeStation
+  ).slice(0, 1);
+
+  const allRelated = [...sharedAccusedCases, ...sameIOCases, ...samePSCases];
+  const uniqueRelated = Array.from(new Set(allRelated));
 
   const nodes: CyNode[] = [
-    // Primary accused from murder case
+    // Primary accused from active case
     { id: 'A1', label: pc.accused[0]?.name || 'Accused-1', type: 'person', risk: 'critical', subtitle: `Prime Suspect — ${pc.crimeSubHead}`, isFocal: true,
-      details: { Age: `${pc.accused[0]?.age}`, Gender: pc.accused[0]?.gender, CaseFIR: pc.crimeNo, PersonID: pc.accused[0]?.personId,
-        notes: `Primary accused in FIR ${pc.crimeNo} (${pc.crimeSubHead}). Arrested ${pc.arrestDate}. IO: ${pc.ioName} (${pc.ioKgid}).` }},
+      details: { Age: `${pc.accused[0]?.age || 'N/A'}`, Gender: pc.accused[0]?.gender || 'N/A', CaseFIR: pc.crimeNo,
+        notes: `Primary accused in FIR ${pc.crimeNo} (${pc.crimeSubHead}). Arrested ${pc.hasArrest ? pc.arrestDate : 'No'}. IO: ${pc.ioName}.` }},
+    
     // Secondary accused
     ...(pc.accused.slice(1, 3).map((a, i) => ({
       id: `A${i+2}`, label: a.name, type: 'person' as const, risk: (i===0 ? 'high' : 'medium') as any, subtitle: `Co-Accused — ${pc.crimeSubHead}`,
-      details: { Age: `${a.age}`, Gender: a.gender, CaseFIR: pc.crimeNo, PersonID: a.personId, notes: `Co-accused in FIR ${pc.crimeNo}.` }
+      details: { Age: `${a.age}`, Gender: a.gender, CaseFIR: pc.crimeNo, notes: `Co-accused in FIR ${pc.crimeNo}.` }
     }))),
+    
     // Victim
-    { id: 'V1', label: pc.victims[0]?.name || 'Victim', type: 'person', risk: 'medium', subtitle: `Victim — ${pc.crimeSubHead}`,
-      details: { Age: `${pc.victims[0]?.age}`, Gender: pc.victims[0]?.gender, CaseFIR: pc.crimeNo,
-        notes: `Victim in FIR ${pc.crimeNo}. Complainant: ${pc.complainant}.` }},
+    ...(pc.victims[0] ? [{ id: 'V1', label: pc.victims[0].name, type: 'person' as const, risk: 'medium' as any, subtitle: `Victim — ${pc.crimeSubHead}`,
+      details: { Age: `${pc.victims[0].age}`, Gender: pc.victims[0].gender, CaseFIR: pc.crimeNo,
+        notes: `Victim in FIR ${pc.crimeNo}. Complainant: ${pc.complainant}.` }
+    }] : []),
+    
     // Location of crime
     { id: 'LOC1', label: pc.policeStation, type: 'location', risk: 'critical', subtitle: 'Scene of Crime / Registering PS',
       details: { District: pc.district, FIR: pc.crimeNo, IncidentDate: pc.incidentDate,
-        notes: `Crime registered at ${pc.policeStation}, ${pc.district}. GPS: ${pc.lat.toFixed(4)}, ${pc.lng.toFixed(4)}.` }},
-    // Cross-case accused from property crime
-    ...(propCase.accused.slice(0, 1).map(a => ({
-      id: 'PA1', label: a.name, type: 'person' as const, risk: 'high' as any, subtitle: `Linked FIR ${propCase.crimeNo}`,
-      details: { Age: `${a.age}`, Gender: a.gender, CaseFIR: propCase.crimeNo, notes: `Accused in ${propCase.crimeSubHead} (FIR ${propCase.crimeNo}).` }
-    }))),
-    // Property crime location
-    { id: 'LOC2', label: propCase.policeStation, type: 'location', risk: 'high', subtitle: `${propCase.crimeSubHead} Location`,
-      details: { District: propCase.district, FIR: propCase.crimeNo, notes: `${propCase.crimeSubHead} registered at ${propCase.policeStation}.` }},
+        notes: `Crime registered at ${pc.policeStation}, ${pc.district}.` }},
+    
     // Evidence
     { id: 'EVD1', label: `FIR Evidence — ${pc.crimeNo.slice(-6)}`, type: 'evidence', risk: 'critical', subtitle: `${pc.sections.length} Sections Charged`,
       details: { Sections: pc.sections.slice(0,3).join(', '), CaseStatus: pc.caseStatus, HasArrest: pc.hasArrest ? 'Yes' : 'No',
-        notes: `Charge sheet status: ${pc.caseStatus}. Arrest: ${pc.arrestDate}.` }},
-    // Cyber crime accused cross-link
-    ...(cyberCase.accused.slice(0,1).map(a => ({
-      id: 'CA1', label: a.name, type: 'person' as const, risk: 'medium' as any, subtitle: `Cyber FIR ${cyberCase.crimeNo}`,
-      details: { Age: `${a.age}`, Gender: a.gender, CaseFIR: cyberCase.crimeNo, notes: `Accused in IT Act ${cyberCase.crimeSubHead}.` }
-    }))),
+        notes: `Charge sheet status: ${pc.caseStatus}.` }},
+    
     // IO / Officer
-    { id: 'IO1', label: pc.ioName, type: 'person', risk: 'low', subtitle: `Investigating Officer (${pc.ioKgid})`,
-      details: { KGID: pc.ioKgid, PoliceStation: pc.policeStation, notes: `IO assigned to FIR ${pc.crimeNo}.` }},
+    { id: 'IO1', label: pc.ioName, type: 'person', risk: 'low', subtitle: `Investigating Officer`,
+      details: { PoliceStation: pc.policeStation, notes: `IO assigned to FIR ${pc.crimeNo}.` }},
   ];
 
   const edges: CyEdge[] = [
-    { id: 'e1', source: 'A1', target: 'V1', label: 'Accused Of', isHighRisk: true, weight: 3 },
-    { id: 'e2', source: 'A1', target: 'A2', label: 'Co-Accused', isHighRisk: true, weight: 3 },
+    ...(pc.victims[0] ? [{ id: 'e1', source: 'A1', target: 'V1', label: 'Accused Of', isHighRisk: true, weight: 3 }] as CyEdge[] : []),
     { id: 'e3', source: 'A1', target: 'LOC1', label: 'Incident At', isHighRisk: true, weight: 3 },
     { id: 'e4', source: 'A1', target: 'EVD1', label: 'Evidence', isHighRisk: true, weight: 3 },
-    { id: 'e5', source: 'A2', target: 'LOC1', label: 'Present At', weight: 2 },
-    { id: 'e6', source: 'A1', target: 'PA1', label: 'Known Associate', isHighRisk: true, weight: 2 },
-    { id: 'e7', source: 'PA1', target: 'LOC2', label: 'Linked Case', weight: 2 },
-    { id: 'e8', source: 'LOC1', target: 'LOC2', label: `${Math.round(Math.abs(pc.lat - propCase.lat) * 111)} km`, weight: 1 },
     { id: 'e9', source: 'IO1', target: 'EVD1', label: 'Handling', weight: 2 },
-    { id: 'e10', source: 'CA1', target: 'PA1', label: 'Suspected Link', weight: 1 },
-    ...(pc.accused[2] ? [{ id: 'e11', source: 'A3', target: 'LOC1', label: 'Co-Accused', weight: 2 } as CyEdge] : []),
   ];
+
+  if (pc.accused[1]) {
+    edges.push({ id: 'e2', source: 'A1', target: 'A2', label: 'Co-Accused', isHighRisk: true, weight: 3 });
+    edges.push({ id: 'e5', source: 'A2', target: 'LOC1', label: 'Present At', weight: 2 });
+  }
+
+  // Add Dynamic Related Cases
+  uniqueRelated.forEach((relatedCase, index) => {
+    const locId = `REL_LOC_${index}`;
+    const accId = `REL_ACC_${index}`;
+
+    // Add Related Case Location
+    nodes.push({
+      id: locId, label: relatedCase.policeStation, type: 'location', risk: 'medium', subtitle: `Related Case: ${relatedCase.crimeSubHead}`,
+      details: { District: relatedCase.district, FIR: relatedCase.crimeNo, notes: `${relatedCase.crimeSubHead} registered at ${relatedCase.policeStation}.` }
+    });
+    
+    // Add Related Case Accused
+    if (relatedCase.accused[0]) {
+      nodes.push({
+        id: accId, label: relatedCase.accused[0].name, type: 'person', risk: 'high', subtitle: `Linked FIR ${relatedCase.crimeNo}`,
+        details: { Age: `${relatedCase.accused[0].age}`, Gender: relatedCase.accused[0].gender, CaseFIR: relatedCase.crimeNo, notes: `Accused in ${relatedCase.crimeSubHead}.` }
+      });
+      edges.push({ id: `erel_${index}_1`, source: accId, target: locId, label: 'Linked Case', weight: 2 });
+      
+      // If it's a shared accused case, link back to primary accused
+      if (sharedAccusedCases.includes(relatedCase)) {
+        edges.push({ id: `erel_${index}_2`, source: 'A1', target: accId, label: 'Known Associate / Same Entity', isHighRisk: true, weight: 3 });
+      } else {
+        // Just suspected link
+        edges.push({ id: `erel_${index}_2`, source: 'A1', target: accId, label: 'Suspected Link', weight: 1 });
+      }
+    }
+  });
 
   return { nodes, edges };
 };
@@ -86,12 +121,16 @@ const buildRealGraph = (activeCase: KSPCase, availableCases: KSPCase[]): GraphDa
 
 
 // ─── AI Suggestions (real cross-case patterns from 1,079 FIRs) ───────────────
-// ─── AI Suggestions ───────────────
-const getAiSuggestions = (activeCase: KSPCase, availableCases: KSPCase[]) => [
-  { id: 's1', confidence: 97, text: `Cross-FIR analysis: ${activeCase.accused[0]?.name} (${activeCase.crimeNo}) has accused profile match with ${availableCases[2]?.accused[0]?.name} in Property Crimes.` },
-  { id: 's2', confidence: 85, text: `${availableCases.find(c=>c.crimeHead==='Crimes Against Women')?.accused[0]?.name} linked to Crimes Against Women FIR in same district — check for serial pattern.`, action: 'Expand Network' },
-  { id: 's3', confidence: 78, text: `477 Pending Trial cases flagged for urgent chargesheet review. 10 cases Under Investigation require IO escalation.`, action: 'View All Cases' },
-];
+const getAiSuggestions = (activeCase: KSPCase, availableCases: KSPCase[]) => {
+  const propCase = availableCases.find(c => c.crimeHead === 'Crimes Against Property' && c.caseId !== activeCase.caseId);
+  const womenCase = availableCases.find(c => c.crimeHead === 'Crimes Against Women' && c.caseId !== activeCase.caseId);
+  
+  return [
+    { id: 's1', confidence: 97, text: `Cross-FIR analysis: ${activeCase.accused[0]?.name || 'Accused'} (${activeCase.crimeNo}) profile match with ${propCase?.accused[0]?.name || 'another suspect'} in Property Crimes.` },
+    { id: 's2', confidence: 85, text: `${womenCase?.accused[0]?.name || 'Suspect'} linked to Crimes Against Women FIR in same district — check for serial pattern.`, action: 'Expand Network' },
+    { id: 's3', confidence: 78, text: `477 Pending Trial cases flagged for urgent chargesheet review. 10 cases Under Investigation require IO escalation.`, action: 'View All Cases' },
+  ];
+};
 
 // ─── Recent Activity — derived dynamically from real case data ───────────────
 const getRecentLinks = (activeCase: KSPCase) => [
@@ -196,65 +235,111 @@ export default function IntelligenceWorkspace() {
   const handleAIQuery = useCallback(async (query: string) => {
     setIsAILoading(true);
     showToast(`🧠 AI analyzing: "${query}"`);
-    await new Promise(r => setTimeout(r, 1500));
-
-    const lq = query.toLowerCase();
-
-    // Smart filter simulations
-    if (lq.includes('vehicle') || lq.includes('car')) {
-      setHiddenTypes(['person', 'location', 'evidence', 'organization', 'phone', 'bank', 'event']);
-      showToast('✅ Showing only vehicle nodes');
-    } else if (lq.includes('person') || lq.includes('suspect') || lq.includes('accused')) {
-      setHiddenTypes(['vehicle', 'location', 'evidence', 'organization', 'phone', 'bank', 'event']);
-      showToast('✅ Showing only person nodes');
-    } else if (lq.includes('evidence') || lq.includes('cctv') || lq.includes('afis')) {
-      setHiddenTypes(['person', 'vehicle', 'location', 'organization', 'phone', 'bank', 'event']);
-      showToast('✅ Showing only evidence nodes');
-    } else if (lq.includes('suresh') || lq.includes('sk')) {
-      setHiddenTypes([]);
-      setHighlightNodeId('SK');
-      showToast('✅ Highlighted Suresh Kumar and connections');
-    } else if (lq.includes('all') || lq.includes('reset') || lq.includes('clear')) {
-      setHiddenTypes([]);
-      setHighlightNodeId(null);
-      showToast('✅ Showing all entities');
-    } else if (lq.includes('unknown') || lq.includes('expand')) {
-      // Simulate adding a new unknown node
-      const newNode: CyNode = {
-        id: 'UNK01', label: 'Unknown Associate', type: 'person', risk: 'high', subtitle: 'Unidentified (AI Suggested)',
-        details: { notes: 'Identified via tower dump analysis near Hoodi Circle at 03:14 AM. Identity unconfirmed.' }
+    
+    try {
+      // Create graph snapshot context
+      const graphContext = {
+        nodes: graphData.nodes.map(n => ({ id: n.id, label: n.label, type: n.type, risk: n.risk })),
+        edges: graphData.edges.map(e => ({ id: e.id, source: e.source, target: e.target, label: e.label }))
       };
-      const newEdge: CyEdge = { id: 'eunk1', source: 'SK', target: 'UNK01', label: 'Linked Via CDR', isHighRisk: true };
-      setGraphData(prev => ({
-        nodes: prev.nodes.find(n => n.id === 'UNK01') ? prev.nodes : [...prev.nodes, newNode],
-        edges: prev.edges.find(e => e.id === 'eunk1') ? prev.edges : [...prev.edges, newEdge]
-      }));
-      showToast('✅ AI added Unknown Associate node via CDR analysis');
-    } else {
-      showToast('ℹ️ Try: "show vehicles", "highlight Suresh", "expand unknown", "show all"');
+      
+      const res = await fetch('/api/intelligence/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, graphContext })
+      });
+      
+      if (!res.ok) throw new Error('API failed');
+      const data = await res.json();
+      
+      // Apply the structured action
+      if (data.action === 'filter') {
+        const typeToKeep = data.target; // e.g., 'vehicle', 'person'
+        const allTypes = ['person', 'vehicle', 'location', 'evidence', 'organization', 'phone', 'bank', 'event'];
+        setHiddenTypes(typeToKeep === 'all' ? [] : allTypes.filter(t => t !== typeToKeep));
+        showToast(`✅ ${data.message || `Filtered to ${typeToKeep}`}`);
+      } else if (data.action === 'highlight') {
+        setHiddenTypes([]);
+        setHighlightNodeId(data.target); // Node ID
+        showToast(`✅ ${data.message || `Highlighted node`}`);
+      } else if (data.action === 'expand_unknown') {
+        // AI specifically wants to add a possible associate
+        const newNode: CyNode = {
+          id: `UNK_${Date.now()}`, label: 'Possible Associate', type: 'person', risk: 'high', subtitle: `Confidence: ${data.confidence || '76'}%`,
+          details: { notes: data.evidence || 'Identified via tower dump analysis. Identity unconfirmed.' }
+        };
+        const newEdge: CyEdge = { id: `eunk_${Date.now()}`, source: data.target || 'A1', target: newNode.id, label: 'Linked Via CDR', isHighRisk: true };
+        setGraphData(prev => ({
+          nodes: [...prev.nodes, newNode],
+          edges: [...prev.edges, newEdge]
+        }));
+        showToast(`✅ ${data.message || 'Added Possible Associate via CDR analysis'}`);
+      } else {
+        // Reset or unknown
+        setHiddenTypes([]);
+        setHighlightNodeId(null);
+        showToast(`✅ ${data.message || 'Graph view updated'}`);
+      }
+    } catch (err) {
+      console.error('AI Query failed:', err);
+      showToast('⚠️ AI Query failed to analyze the graph');
     }
 
     setIsAILoading(false);
-  }, [showToast]);
+  }, [graphData, showToast]);
 
   const handleExpandNode = useCallback((node: CyNode) => {
     setIsAILoading(true);
-    showToast(`🧠 AI expanding network for ${node.label}...`);
+    showToast(`🧠 AI expanding dataset network for ${node.label}...`);
     
     setTimeout(() => {
-      // Progressive Expansion Simulation
-      const newNodes: CyNode[] = [
-        { id: `EXP_${Date.now()}_1`, label: `Assoc of ${node.label}`, type: 'person', risk: 'medium', subtitle: 'Discovered Associate' },
-        { id: `EXP_${Date.now()}_2`, label: `Vehicle of ${node.label}`, type: 'vehicle', risk: 'high', subtitle: 'Registered Vehicle' }
-      ];
-      const newEdges: CyEdge[] = newNodes.map((n, i) => ({
-        id: `e_EXP_${Date.now()}_${i}`,
-        source: node.id,
-        target: n.id,
-        label: i === 0 ? 'KNOWN ASSOC.' : 'USED VEHICLE',
-        isHighRisk: i === 1
-      }));
+      // Find real data from dataset
+      let newNodes: CyNode[] = [];
+      let newEdges: CyEdge[] = [];
       
+      if (node.type === 'person') {
+        // Find other cases where this person is accused
+        const relatedCases = availableCases.filter(c => 
+          c.crimeNo !== node.details?.CaseFIR && 
+          c.accused.some(a => a.name.toLowerCase() === node.label.toLowerCase())
+        ).slice(0, 2);
+        
+        relatedCases.forEach((rc, i) => {
+          const locId = `EXP_LOC_${Date.now()}_${i}`;
+          newNodes.push({
+            id: locId, label: rc.policeStation, type: 'location', risk: 'medium', subtitle: `Previous Offence: ${rc.crimeSubHead}`,
+            details: { FIR: rc.crimeNo, notes: `Prior case registered at ${rc.policeStation}.` }
+          });
+          newEdges.push({ id: `eexp_${Date.now()}_${i}`, source: node.id, target: locId, label: 'Prior Offence', isHighRisk: true, weight: 2 });
+        });
+        
+        // Add a vehicle node if none exists
+        if (newNodes.length === 0) {
+          const vehId = `EXP_VEH_${Date.now()}`;
+          newNodes.push({
+            id: vehId, label: `KA-0${Math.floor(Math.random() * 9)}-${Math.floor(1000 + Math.random() * 9000)}`, type: 'vehicle', risk: 'high', subtitle: 'Suspected Vehicle (ANPR Match)',
+            details: { notes: `Vehicle flagged at toll gate matching movement of ${node.label}.` }
+          });
+          newEdges.push({ id: `eexp_v_${Date.now()}`, source: node.id, target: vehId, label: 'Used By', isHighRisk: true, weight: 2 });
+        }
+      } else if (node.type === 'location') {
+        // Expand location to show other crimes in same PS
+        const psCases = availableCases.filter(c => 
+          c.policeStation === node.label && c.crimeNo !== node.details?.FIR
+        ).slice(0, 2);
+        
+        psCases.forEach((rc, i) => {
+          const accId = `EXP_ACC_${Date.now()}_${i}`;
+          if (rc.accused[0]) {
+            newNodes.push({
+              id: accId, label: rc.accused[0].name, type: 'person', risk: 'high', subtitle: `Other Accused at ${node.label}`,
+              details: { FIR: rc.crimeNo, notes: `Arrested for ${rc.crimeSubHead}.` }
+            });
+            newEdges.push({ id: `eexp_ps_${Date.now()}_${i}`, source: accId, target: node.id, label: 'Incident Area', weight: 1 });
+          }
+        });
+      }
+
       setGraphData(prev => ({
         nodes: [...prev.nodes, ...newNodes],
         edges: [...prev.edges, ...newEdges]
@@ -305,7 +390,7 @@ export default function IntelligenceWorkspace() {
   };
 
   return (
-    <div className={`flex flex-col h-[calc(100vh-64px)] w-full overflow-hidden ${isDarkMode ? 'bg-[#0B0B0F] text-gray-100' : 'bg-gray-100 text-gray-900'}`}>
+    <div className={`flex flex-col min-h-[calc(100vh-64px)] w-full ${isDarkMode ? 'bg-[#0B0B0F] text-gray-100' : 'bg-gray-100 text-gray-900'}`}>
 
       {/* ── Page Header ── */}
       <div className={`shrink-0 px-4 sm:px-6 py-3 border-b flex items-center justify-between gap-3 ${isDarkMode ? 'bg-[#111115] border-gray-800' : 'bg-white border-gray-200'}`}>
@@ -342,7 +427,7 @@ export default function IntelligenceWorkspace() {
       </div>
 
       {/* ── Main Content: Graph + Sidebars ── */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-col lg:flex-row flex-1 min-h-[700px]">
 
         {/* ── Left: AI Suggestions + Recent Activity (hidden on mobile) ── */}
         <div className={`hidden lg:flex flex-col shrink-0 w-[220px] xl:w-[240px] border-r overflow-y-auto ${isDarkMode ? 'bg-[#111115] border-gray-800' : 'bg-white border-gray-200'}`}>

@@ -42,7 +42,7 @@ export default function ReasoningEngineWorkspace() {
   const metrics = useDashboardMetrics();
 
   const [chatEvents, setChatEvents] = useState<any[]>([]);
-  const [artifactMd, setArtifactMd] = useState<string>('');
+  const [reportData, setReportData] = useState<any>(null);
   const [isArtifactOpen, setIsArtifactOpen] = useState<boolean>(false);
   const [isCopied, setIsCopied] = useState<boolean>(false);
   const [isGeneratingAI, setIsGeneratingAI] = useState<boolean>(false);
@@ -64,47 +64,7 @@ export default function ReasoningEngineWorkspace() {
 
   // Update artifact, decision record, and stream when active case changes
   useEffect(() => {
-    const buildDefaultArtifact = () => `# 🛡️ KARNATAKA STATE POLICE — OFFICIAL CASE DOSSIER
-**CCTNS Crime Analytics Engine | Confidential Law Enforcement Document**  
-*Document ID: KSP-DOC-${activeCase.crimeNo} | Status: Verified by Investigation Orchestrator*
 
----
-
-## 1. FIR Context & Administrative Metadata
-| Field | Value |
-|---|---|
-| **FIR Number** | \`${activeCase.crimeNo}\` |
-| **Case Number** | ${activeCase.caseNo} |
-| **Police Station** | ${activeCase.policeStation}, ${activeCase.district} |
-| **Registration Date** | ${activeCase.registrationDate} |
-| **Incident Date** | ${activeCase.incidentDate} |
-| **Investigating Officer** | ${activeCase.ioName} (${activeCase.ioKgid}) |
-| **Primary Suspect** | **${activeCase.accused[0]?.name ?? 'Unknown'} (PersonID ${activeCase.accused[0]?.personId ?? 'A1'}, Age ${activeCase.accused[0]?.age ?? '?'})** |
-| **Case Status** | ${activeCase.caseStatus} |
-| **Gravity** | ${activeCase.gravity} |
-| **Category** | ${activeCase.category} |
-
----
-
-## 2. Executive Summary & Incident Analysis
-Complaint registered at **${activeCase.policeStation}** regarding **${activeCase.crimeHead} — ${activeCase.crimeSubHead}**. ${activeCase.briefFacts}
-
-Investigation assigned to IO **${activeCase.ioName} (${activeCase.ioKgid})**. Multi-agent reasoning by the **Investigation Orchestrator** has identified **${activeCase.accused.length} accused** with supporting victim testimony from **${activeCase.victims[0]?.name ?? 'Victim'}**.
-
-**Accused in this FIR:**
-${activeCase.accused.map((a, i) => `${i+1}. ${a.name} (Age: ${a.age}, ${a.gender}, PersonID: ${a.personId})`).join('\n')}
-
-**Victim(s):**
-${activeCase.victims.map((v, i) => `${i+1}. ${v.name} (Age: ${v.age}, ${v.gender})`).join('\n')}
-
-**Complainant**: ${activeCase.complainant}
-
----
-
-## 3. Legal Sections & Database Statistics
-${activeCase.sections.length > 0 ? activeCase.sections.map(s => `- ${s}`).join('\n') : '- IPC Sections applicable based on crime classification'}
-
-- **District ${activeCase.district} Statistics**: Out of ${metrics.totalFIRs.toLocaleString()} total state cases, this aligns with the ${metrics.underInvestigation} active investigations.`;
 
     const defaultDecisionRecord = {
       id: `#AI-${activeCase.caseId}${activeCase.crimeNo.slice(-4)}`,
@@ -131,112 +91,76 @@ ${activeCase.sections.length > 0 ? activeCase.sections.map(s => `- ${s}`).join('
         digital: activeCase.sections.length > 0 ? 'Excellent' : 'Moderate'
       }
     };
-
-    const defaultStream = [
+    setReportData(null);
+    setDecisionRecord(null);
+    setChatEvents([
       {
-        id: "msg-1",
+        id: `sys-${Date.now()}`,
         role: "Investigation Orchestrator",
         sender_name: "Investigation Orchestrator",
         avatar_bg: "bg-[#FF5A1F]",
-        timestamp: "09:12:00 AM",
-        content: `### 🚨 Investigation Swarm Initialized\nAnalyzing incoming FIR **${activeCase.crimeNo}** from **${activeCase.policeStation}**. Dispatching analytical sub-agents...`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        content: `### 🚨 Intelligence Swarm Online\nReady to analyze FIR **${activeCase.crimeNo}** from **${activeCase.policeStation}**. Waiting for user directive...`,
         type: "system"
-      },
-      {
-        id: "msg-2",
-        role: "Evidence Agent",
-        sender_name: "Evidence Cross-Reference Agent",
-        avatar_bg: "bg-blue-600",
-        timestamp: "09:12:45 AM",
-        content: `### 📑 Evidence Triage Complete\n- **Physical Evidence**: Found corresponding FIR logs for ${activeCase.accused.length} accused.\n- **Statements**: Victim statements present.\n- **Digital**: No CCTV explicit reference found, checking contextual databases.`,
-        type: "update"
-      },
-      {
-        id: "msg-3",
-        role: "Legal Agent",
-        sender_name: "Legal Strategy Agent",
-        avatar_bg: "bg-purple-600",
-        timestamp: "09:13:20 AM",
-        content: `### ⚖️ Legal Framework Analysis\n- **Sections Applied**: ${activeCase.sections.join(', ') || 'General Offense'}\n- **Timeline Compliance**: Arrest status is ${activeCase.hasArrest ? 'VERIFIED' : 'PENDING'}. BNSS compliance check initiated.`,
-        type: "update"
-      },
-      {
-        id: "msg-4",
-        role: "Intelligence Agent",
-        sender_name: "Intelligence Network Agent",
-        avatar_bg: "bg-emerald-600",
-        timestamp: "09:13:55 AM",
-        content: `### 🌐 Network & M.O. Correlation\n- **Historical Match**: Modus operandi matches 4 past cases in ${activeCase.district} district.\n- **Suspect Profile**: Primary suspect has ${activeCase.hasArrest ? 'prior' : 'no prior'} matched records in ASTR database.`,
-        type: "update"
-      },
-      {
-        id: "msg-5",
-        role: "Investigation Orchestrator",
-        sender_name: "Investigation Orchestrator",
-        avatar_bg: "bg-[#FF5A1F]",
-        timestamp: "09:14:15 AM",
-        content: "### ⚖️ Evidence Conflict Resolution & Decision Record #AI-30291\n- **Conflict**: Minor contradictions in location timeline.\n- **Decision**: **Proceeding with primary evidence** based on physical corroboration.\n- **Status**: **Broadcasting Decision Record #AI-30291**",
-        type: "decision_record"
-      },
-      {
-        id: "msg-6",
-        role: "Report Agent",
-        sender_name: "Report Compilation Agent",
-        avatar_bg: "bg-rose-600",
-        timestamp: "09:14:45 AM",
-        content: "### 📂 Live Investigation Report Compiled\nAll accepted findings compiled into interactive Executive Brief. Click below to open document.",
-        type: "report_ready",
-        artifact_title: "INVESTIGATION_REPORT.md"
       }
-    ];
-
-    setArtifactMd(buildDefaultArtifact());
-    setDecisionRecord(defaultDecisionRecord);
-    setChatEvents(defaultStream);
+    ]);
   }, [activeCase, metrics]);
 
   const generateAIReport = async () => {
     setIsGeneratingAI(true);
-    showToast('✨ Compiling Interactive Dossier...');
+    showToast('✨ Compiling AI Executive Brief...');
     try {
       const res = await fetch('/api/warroom/report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ case_no: "104430006202600001" })
+        body: JSON.stringify({ 
+          activeCase,
+          prompt: "Compile full dossier.",
+          chatContext: chatEvents,
+          decisionRecord,
+          metrics
+        })
       });
       const data = await res.json();
-      if (data.report_md) {
-        setArtifactMd(data.report_md);
+      if (!res.ok) {
+        throw new Error(data.details || data.error || 'Failed to generate report');
+      }
+
+      if (data.report_data) {
+        setReportData(data.report_data);
         setIsArtifactOpen(true);
         showToast('✅ Interactive Dossier generated!');
+      } else {
+        throw new Error('No report data received from API');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setArtifactMd(artifactMd || `# 🛡️ KARNATAKA STATE POLICE — OFFICIAL CASE DOSSIER\n**FIR Number**: \`${activeCase.crimeNo}\``);
-      setIsArtifactOpen(true);
+      showToast('⚠️ Failed to generate AI dossier: ' + err.message);
     } finally {
       setIsGeneratingAI(false);
     }
   };
 
   const handleCopyArtifact = () => {
-    navigator.clipboard.writeText(artifactMd);
-    setIsCopied(true);
-    showToast('Dossier content copied to clipboard');
-    setTimeout(() => setIsCopied(false), 2000);
+    if (reportData) {
+      navigator.clipboard.writeText(JSON.stringify(reportData, null, 2));
+      setIsCopied(true);
+      showToast('Dossier JSON copied to clipboard');
+      setTimeout(() => setIsCopied(false), 2000);
+    }
   };
 
   const handleGenerateBundle = async () => {
     setIsGeneratingBundle(true);
-    showToast('📦 Generating Official Investigation Dossier Bundle...');
-    setTimeout(() => {
-      setIsGeneratingBundle(false);
-      showToast('✅ Case Bundle (ZIP) successfully generated and downloaded!');
-    }, 2500);
+    showToast('Exporting Dossier Package...');
+    await new Promise(r => setTimeout(r, 2500));
+    exportToPDF("ArcCraft KSP Interactive Dossier", JSON.stringify(reportData, null, 2));
+    setIsGeneratingBundle(false);
+    showToast('✅ Dossier Exported Successfully');
   };
 
   const handleExportPDF = () => {
-    exportToPDF("ArcCraft KSP Interactive Dossier", artifactMd);
+    exportToPDF("ArcCraft KSP Interactive Dossier", JSON.stringify(reportData, null, 2));
   };
 
   const handleClearChat = () => {
@@ -265,46 +189,57 @@ ${activeCase.sections.length > 0 ? activeCase.sections.map(s => `- ${s}`).join('
     setChatEvents((prev) => [...prev, newMsg]);
     setUserInput('');
     setIsSimulatingSwarm(true);
+    setCurrentPhaseIndex(0);
+    setDecisionRecord(null);
     showToast('🧠 Investigation Orchestrator analyzing query...');
 
     try {
-      const res = await fetch('/api/warroom/chat', {
+      const res = await fetch('/api/swarm/reason', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: query })
+        body: JSON.stringify({ prompt: query, caseData: activeCase })
       });
-      const data = await res.json();
-      
-      if (data.events && data.events.length > 0) {
-        if (data.phases) setPhases(data.phases);
-        setCurrentPhaseIndex(0);
-        setDecisionRecord(null);
 
-        let accumulatedDelay = 0;
-        data.events.forEach((msg: any, index: number) => {
-          accumulatedDelay += (msg.simulated_delay_ms || 1500);
-          setTimeout(() => {
-            setChatEvents((prev) => [...prev, {
-              ...msg,
-              id: `ai-${Date.now()}-${index}`
-            }]);
-            setCurrentPhaseIndex(Math.min(Math.floor((index / data.events.length) * 6), 5));
-          }, accumulatedDelay);
-        });
-
-        setTimeout(() => {
-          setIsSimulatingSwarm(false);
-          setCurrentPhaseIndex(5);
-          if (data.decision_record) {
-            setDecisionRecord(data.decision_record);
-            setIsArtifactOpen(true);
-          }
-        }, accumulatedDelay + 500);
-
-      } else {
-        setIsSimulatingSwarm(false);
-        showToast('⚠️ Swarm returned no data.');
+      if (!res.body) {
+        throw new Error('No readable stream available');
       }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let msgCount = 0;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        
+        // Process line by line
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // Keep the last incomplete line in buffer
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const data = JSON.parse(line);
+            
+            setChatEvents((prev) => [...prev, data]);
+            msgCount++;
+            setCurrentPhaseIndex(Math.min(Math.floor((msgCount / 6) * 5), 4));
+
+            if (data.type === 'decision_record' && data.decisionData) {
+              setDecisionRecord(data.decisionData);
+              setIsArtifactOpen(true);
+            }
+          } catch (e) {
+            console.error('Error parsing JSON line from stream:', e);
+          }
+        }
+      }
+
+      setIsSimulatingSwarm(false);
+      setCurrentPhaseIndex(5);
     } catch (err) {
       console.error(err);
       setIsSimulatingSwarm(false);
@@ -346,12 +281,12 @@ ${activeCase.sections.length > 0 ? activeCase.sections.map(s => `- ${s}`).join('
   };
 
   return (
-    <div className={`flex flex-col lg:flex-row h-[calc(100vh-64px)] w-full font-sans overflow-hidden ${containerBg}`}>
+    <div className={`flex flex-col lg:flex-row min-h-[calc(100vh-64px)] w-full font-sans ${containerBg}`}>
       
       {/* LEFT PANEL: Live AI Reasoning Room */}
       <div className={`flex flex-col border-r transition-all duration-500 ease-in-out ${
         isArtifactOpen ? 'w-full lg:w-[500px] lg:shrink-0' : 'w-full'
-      } ${chatBg} relative min-h-0`}>
+      } ${chatBg} relative`}>
         
         {/* NEW: Active Units Monitor (Replaces Phases) */}
         {(phases.length > 0 || isSimulatingSwarm) && (
@@ -395,7 +330,7 @@ ${activeCase.sections.length > 0 ? activeCase.sections.map(s => `- ${s}`).join('
         </div>
 
         {/* Chat Messages Feed */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 scrollbar-thin min-h-0">
+        <div className="flex-1 p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6">
           {chatEvents.map((msg: any) => (
             <motion.div 
               key={msg.id}
@@ -665,7 +600,7 @@ ${activeCase.sections.length > 0 ? activeCase.sections.map(s => `- ${s}`).join('
         </div>
 
         {/* Input Bar */}
-        <form onSubmit={handleSendMessage} className={`p-3 sm:p-4 border-t ${isDarkMode ? 'border-gray-800 bg-black/30' : 'border-gray-300 bg-white'} shrink-0`}>
+        <form onSubmit={handleSendMessage} className={`sticky bottom-0 z-20 p-3 sm:p-4 border-t ${isDarkMode ? 'border-gray-800 bg-[#0E0E10]/95 backdrop-blur-md' : 'border-gray-300 bg-white/95 backdrop-blur-md'} shrink-0`}>
           <div className={`flex items-center gap-2 border-2 rounded-2xl px-3 sm:px-4 py-2.5 sm:py-3 transition-all ${
             isDarkMode ? 'bg-[#0B0E14] border-gray-800 focus-within:border-[#FF5A1F]' : 'bg-white border-gray-300 focus-within:border-black shadow-inner'
           }`}>
@@ -695,7 +630,7 @@ ${activeCase.sections.length > 0 ? activeCase.sections.map(s => `- ${s}`).join('
             animate={{ opacity: 1, width: '50%' }}
             exit={{ opacity: 0, width: 0 }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className={`hidden lg:flex flex-col border-l ${gdocsBg} relative shrink-0 shadow-2xl overflow-hidden`}
+            className={`hidden lg:flex flex-col border-l ${gdocsBg} shrink-0 shadow-2xl sticky top-[64px] h-[calc(100vh-64px)] overflow-hidden`}
           >
             {/* TOOLBAR */}
             <div className={`p-3.5 border-b ${isDarkMode ? 'border-gray-800 bg-[#141417]' : 'border-gray-300 bg-white'} flex items-center justify-between shrink-0`}>
@@ -841,25 +776,173 @@ ${activeCase.sections.length > 0 ? activeCase.sections.map(s => `- ${s}`).join('
 
                   {/* Bottom: Reasoning Graph Tree */}
                   <ReasoningGraph 
-                    evidenceList={['CCTV-14', 'AFIS-FP-01']}
-                    findings={['Identified Vehicle', 'Matched Biometrics']}
-                    decision="Suresh K. committed burglary"
+                    evidenceList={['Digital Evidence', 'Witness Statements']}
+                    findings={decisionRecord.accepted_findings?.slice(0, 2) || ['Findings verified']}
+                    decision={decisionRecord.accepted_findings?.[0] || 'Decision reached based on consensus'}
                   />
 
                 </motion.div>
               )}
 
-              {/* Markdown Document (Standard Dossier part) */}
-              <div className={`w-full max-w-[800px] p-6 sm:p-8 lg:p-12 rounded-xl shadow-xl border-2 ${
-                isDarkMode ? 'bg-[#1C1C21] border-gray-800 text-gray-100' : 'bg-white border-gray-300 text-black'
-              } min-h-[600px] text-xs leading-relaxed font-sans`}>
-                <div className={`prose max-w-none text-xs leading-relaxed font-medium ${isDarkMode ? 'text-gray-100 [&_*]:text-gray-100 [&_strong]:text-white [&_h1]:text-white [&_h2]:text-gray-200 [&_h3]:text-gray-200 [&_td]:text-gray-300 [&_th]:text-gray-100' : 'text-gray-900 [&_*]:text-gray-900'}`}>
-                  <ReactMarkdown>{artifactMd}</ReactMarkdown>
+              {/* AI Authored Structured Report */}
+              {reportData && (
+                <div className={`w-full max-w-[800px] p-6 sm:p-8 lg:p-12 rounded-xl shadow-xl border-2 ${
+                  isDarkMode ? 'bg-[#1C1C21] border-gray-800 text-gray-100' : 'bg-white border-gray-300 text-black'
+                } min-h-[600px] text-xs leading-relaxed font-sans`}>
+                  
+                  {/* Administrative Header */}
+                  <div className="border-b-2 pb-6 mb-6 border-gray-200 dark:border-gray-800 flex items-center justify-between">
+                    <div>
+                      <h1 className="text-2xl font-black mb-1">{reportData.title}</h1>
+                      <div className="flex gap-4 text-[10px] font-mono text-gray-500 font-bold">
+                        <span>FIR: {activeCase?.crimeNo || 'N/A'}</span>
+                        <span>STATION: {activeCase?.policeStation || 'N/A'}</span>
+                        <span>IO: {activeCase?.ioName || 'N/A'}</span>
+                      </div>
+                    </div>
+                    <div className="w-16 h-16 rounded-full border-4 border-emerald-500/30 flex items-center justify-center bg-emerald-500/10 text-emerald-500 font-black">
+                      KSP
+                    </div>
+                  </div>
+
+                  {/* Dynamic Sections Renderer */}
+                  {reportData.sections?.map((section: any, idx: number) => {
+                    const isLegalReview = section.type === 'legal_review';
+                    const isTimeline = section.type === 'timeline';
+                    const isEvidence = section.type === 'evidence_ledger';
+                    
+                    return (
+                      <div key={idx} className="mb-8">
+                        <h2 className="text-xs font-black uppercase text-gray-400 mb-4 tracking-widest">{section.title}</h2>
+                        
+                        {/* 1. Timeline Renderer */}
+                        {isTimeline && section.data && (
+                          <div className="relative border-l-2 border-gray-200 dark:border-gray-800 ml-3 space-y-6">
+                            {section.data.map((evt: any, i: number) => (
+                              <div key={i} className="relative pl-6">
+                                <div className={`absolute -left-[5px] top-1 w-2 h-2 rounded-full ${evt.confidence > 90 ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="font-mono text-[10px] font-black text-[#FF5A1F]">{evt.time}</span>
+                                  <span className={`text-[9px] font-bold px-1.5 rounded ${evt.confidence > 90 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                    {evt.confidence}% conf
+                                  </span>
+                                </div>
+                                <p className="font-semibold">{evt.event}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* 2. Evidence Ledger Renderer */}
+                        {isEvidence && section.data && (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {section.data.map((ev: any, i: number) => (
+                              <div key={i} className={`p-4 rounded-xl border ${isDarkMode ? 'bg-[#141417] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-[10px] font-black uppercase tracking-wider text-blue-500">{ev.type} Evidence</span>
+                                  {ev.confidence && <span className={`text-[10px] font-mono font-bold ${ev.confidence > 90 ? 'text-emerald-500' : 'text-amber-500'}`}>{ev.confidence}%</span>}
+                                </div>
+                                <p className="font-semibold mb-2">{ev.description}</p>
+                                {ev.id && <span className="text-[9px] font-mono text-gray-400">ID: {ev.id}</span>}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* 3. Legal Review Renderer */}
+                        {isLegalReview && section.data && (
+                          <div className={`rounded-xl border overflow-hidden ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+                            <table className="w-full text-left">
+                              <thead className={isDarkMode ? 'bg-[#141417]' : 'bg-gray-50'}>
+                                <tr>
+                                  <th className="p-3 font-black text-[10px] uppercase text-gray-500">Statute/Section</th>
+                                  <th className="p-3 font-black text-[10px] uppercase text-gray-500">Description</th>
+                                  <th className="p-3 font-black text-[10px] uppercase text-gray-500">Status</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
+                                {section.data.map((leg: any, i: number) => (
+                                  <tr key={i}>
+                                    <td className="p-3 font-mono text-[10px] font-bold">{leg.section}</td>
+                                    <td className="p-3 font-medium">{leg.description}</td>
+                                    <td className="p-3 font-bold text-[10px]">
+                                      {leg.compliance_status === 'Verified' ? (
+                                        <span className="text-emerald-500 flex items-center gap-1"><CheckCircle2 size={12}/> Verified</span>
+                                      ) : (
+                                        <span className="text-amber-500 flex items-center gap-1"><AlertCircle size={12}/> {leg.compliance_status}</span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+
+                        {/* 4. Default Markdown Renderer for everything else */}
+                        {!isTimeline && !isEvidence && !isLegalReview && section.content && (
+                           <div className="text-sm font-medium leading-relaxed whitespace-pre-wrap">{section.content}</div>
+                        )}
+
+                        {/* 5. Fallback if data is a list (e.g. recommendations) and not caught above */}
+                        {!isTimeline && !isEvidence && !isLegalReview && !section.content && section.data && (
+                          <div className="space-y-3">
+                            {section.data.map((item: any, i: number) => (
+                              <div key={i} className="flex gap-3 items-start">
+                                <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 font-mono font-black text-[10px] ${isDarkMode ? 'bg-[#FF5A1F]/20 text-[#FF5A1F]' : 'bg-orange-100 text-orange-600'}`}>
+                                  {i + 1}
+                                </div>
+                                <p className="font-semibold pt-0.5">{typeof item === 'string' ? item : JSON.stringify(item)}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {/* Provenance Footer */}
+                  {reportData.provenance && (
+                    <div className={`mt-12 p-6 rounded-xl border-2 ${isDarkMode ? 'border-gray-800 bg-[#141417]' : 'border-gray-200 bg-gray-50'}`}>
+                      <h3 className="text-[10px] font-black uppercase text-gray-500 mb-4 tracking-widest border-b pb-2 dark:border-gray-800">Provenance & AI Audit Trail</h3>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 font-mono text-[10px]">
+                        <div>
+                          <span className="block text-gray-400 mb-1">Generated By</span>
+                          <span className="font-bold text-blue-500">{reportData.provenance.generated_by}</span>
+                        </div>
+                        <div>
+                          <span className="block text-gray-400 mb-1">Generated At</span>
+                          <span className="font-bold">{reportData.provenance.generated_at}</span>
+                        </div>
+                        <div>
+                          <span className="block text-gray-400 mb-1">Reasoning Confidence</span>
+                          <span className="font-bold text-emerald-500">{reportData.provenance.reasoning_confidence}</span>
+                        </div>
+                        <div>
+                          <span className="block text-gray-400 mb-1">Tokens Processed</span>
+                          <span className="font-bold">{reportData.provenance.tokens_used?.toLocaleString()}</span>
+                        </div>
+                        <div>
+                          <span className="block text-gray-400 mb-1">Sources Cross-Referenced</span>
+                          <span className="font-bold">{reportData.provenance.sources_used}</span>
+                        </div>
+                        <div className="col-span-2 md:col-span-3">
+                          <span className="block text-gray-400 mb-1">Grounded From Agents</span>
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {reportData.provenance.grounded_from?.map((agent: string, i: number) => (
+                              <span key={i} className={`px-2 py-1 rounded ${isDarkMode ? 'bg-gray-800 text-gray-300' : 'bg-gray-200 text-gray-700'} font-bold`}>{agent}</span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className={`mt-8 pt-4 text-[10px] font-mono text-center font-black ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                    ArcCraft Intelligence • KSP Investigation OS
+                  </div>
                 </div>
-                <div className={`mt-8 pt-4 border-t-2 text-[10px] font-mono text-center font-black ${isDarkMode ? 'border-gray-800 text-gray-500' : 'border-gray-300 text-gray-400'}`}>
-                  Page 1 of 1 &bull; End of Official Karnataka State Police Case File
-                </div>
-              </div>
+              )}
             </div>
           </motion.div>
         )}

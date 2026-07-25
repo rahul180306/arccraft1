@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type, Schema } from "@google/genai";
 
 export async function POST(req: NextRequest) {
   try {
-    const { case_no, prompt } = await req.json();
+    const { activeCase, prompt, chatContext, decisionRecord } = await req.json();
+    console.log("Incoming activeCase:", activeCase?.crimeNo || "Undefined");
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
@@ -22,60 +23,137 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    const model = "gemini-2.0-flash";
+    const model = "gemini-2.5-pro";
 
     const systemInstruction = `You are ArcCraft AI Report Compiler, the official Law Enforcement Document Generation Engine for Karnataka State Police (KSP CCTNS System).
 
-Generate a formal, highly structured Google Docs Investigation Dossier in Markdown format.
+Your job is to synthesize all active intelligence (Swarm Agent chat history, Orhcestrator Decision Records, and FIR details) into a highly structured JSON Executive Brief. Ensure no markdown formatting is included in the raw text fields unless requested. Follow the schema exactly.`;
 
-Include these exact sections:
-# 🛡️ KARNATAKA STATE POLICE — OFFICIAL CASE DOSSIER
-**CCTNS Crime Analytics Engine | Confidential Law Enforcement Document**
-
-## 1. FIR Context & Administrative Metadata
-- **FIR Number**: FIR 104430006202600001
-- **Police Station**: Anekal Police Station, Bengaluru City
-- **Registration Date**: 10 Feb 2026, 08:30 AM
-- **Investigating Officer**: Inspector Arjun (KGID KSP20180091)
-- **Primary Suspect**: Suresh K. (Alias "Chotte", PersonID A1 - Repeat Offender)
-
-## 2. Executive Summary & Incident Timeline
-On 10 Feb 2026 at 02:14 AM, an armed night break-in occurred at Lakshmi Jewelry Store, Anekal Main Road. Gold ornaments valued at ₹45 Lakhs were stolen using gas cutter tools.
-
-## 3. Specialist Police Unit Findings
-- **📹 Digital Evidence Unit**: CCTV Exit Gate Cam #14 Frame 291 confirmed getaway vehicle as Red Stolen Hatchback (KA-03-MN-4481) at 02:14 AM (96% Confidence).
-- **🔬 Forensic Analysis Unit**: Latent AFIS Fingerprint #FP-01 matched Suresh K. (94.2% match).
-- **🕸 Criminal Intelligence Unit**: Suspect PersonID A1 cross-linked to Mysuru SIM-swap fraud FIR 104440008202600002.
-- **⚖️ Legal Compliance Unit**: BNS Sec 305 & 331 charges validated. BNSS Sec 35 notice required.
-
-## 4. Auditable Decision Record #AI-30291
-- **Conflict Resolution**: CCTV Video 96% confidence vs Witness Statement #02 (Blue Bike 72%).
-- **Accepted Rationale**: CCTV video & ANPR registration match accepted; witness statement overruled due to low night visibility.
-
-## 5. Next Best Investigative Actions
-1. Issue Non-Bailable Arrest Warrant under BNSS Section 35.
-2. Execute seizure memo under BSA for gas cutter tools and ₹45L gold.
+    const userPrompt = `Generate comprehensive KSP investigation structured report for case ${activeCase?.crimeNo || 'Unknown FIR'}.
+    
+Context:
+Prompt: ${prompt || 'Compile full dossier.'}
+FIR & Investigation Data: ${JSON.stringify(activeCase || {})}
+Decision Record: ${JSON.stringify(decisionRecord || {})}
+Swarm Chat Logs: ${JSON.stringify((chatContext || []).map((c: any) => c.content))}
 `;
 
-    const userPrompt = prompt || `Generate comprehensive KSP investigation report for case ${case_no || 'FIR 104430006202600001'}`;
+    const reportSchema: Schema = {
+      type: Type.OBJECT,
+      properties: {
+        title: { type: Type.STRING },
+        sections: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              type: { type: Type.STRING, description: "Section type: e.g. executive_summary, incident_reconstruction, evidence_ledger, timeline, legal_review, contradictions, recommendations, etc." },
+              title: { type: Type.STRING, description: "Human readable title for the section" },
+              content: { type: Type.STRING, description: "Markdown formatted rich text content for this section" },
+              data: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    // Timeline fields
+                    time: { type: Type.STRING },
+                    event: { type: Type.STRING },
+                    
+                    // Evidence fields
+                    id: { type: Type.STRING },
+                    description: { type: Type.STRING },
+                    
+                    // Legal review fields
+                    section: { type: Type.STRING },
+                    compliance_status: { type: Type.STRING },
+                    
+                    // Shared fields
+                    confidence: { type: Type.INTEGER },
+                    type: { type: Type.STRING },
+                    
+                    // Cross case fields
+                    related_case: { type: Type.STRING },
+                    relevance: { type: Type.STRING },
+                    
+                    // Generic fallback string
+                    value: { type: Type.STRING }
+                  }
+                }
+              }
+            },
+            required: ["type", "title"]
+          }
+        },
+        provenance: {
+          type: Type.OBJECT,
+          properties: {
+            generated_by: { type: Type.STRING },
+            generated_at: { type: Type.STRING },
+            grounded_from: { type: Type.ARRAY, items: { type: Type.STRING } },
+            tokens_used: { type: Type.INTEGER },
+            reasoning_confidence: { type: Type.STRING },
+            sources_used: { type: Type.INTEGER }
+          },
+          required: ["generated_by", "generated_at", "grounded_from"]
+        }
+      },
+      required: ["title", "sections", "provenance"]
+    };
 
-    const response = await ai.models.generateContent({
-      model,
-      contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-      config: {
-        systemInstruction,
+    let reportData;
+    try {
+      let response;
+      try {
+        response = await ai.models.generateContent({
+          model: model,
+          contents: userPrompt,
+          config: {
+            systemInstruction: systemInstruction,
+            responseMimeType: "application/json",
+            responseSchema: reportSchema,
+            temperature: 0.2
+          }
+        });
+      } catch (firstError: any) {
+        if (firstError.status === 429 || String(firstError).includes('429')) {
+          console.warn("Gemini 2.5 Pro quota exceeded (429). Falling back to gemini-2.5-flash...");
+          response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: userPrompt,
+            config: {
+              systemInstruction: systemInstruction,
+              responseMimeType: "application/json",
+              responseSchema: reportSchema,
+              temperature: 0.2
+            }
+          });
+        } else {
+          throw firstError;
+        }
       }
-    });
 
-    const reportText = response.text || systemInstruction;
+      console.log("Gemini raw response:", response.text);
+
+      if (response.text) {
+        reportData = JSON.parse(response.text);
+      } else {
+        throw new Error("No response text");
+      }
+    } catch (apiError) {
+      console.error("Gemini API error:", apiError);
+      return NextResponse.json(
+        { error: "Failed to generate AI dossier", details: String(apiError) },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       status: "success",
-      report_md: reportText
+      report_data: reportData
     });
 
   } catch (error: any) {
-    console.error("Error generating Gemini report:", error);
+    console.error("Error generating structured report:", error);
     return NextResponse.json(
       { error: error.message || "Internal server error" },
       { status: 500 }

@@ -56,6 +56,31 @@ export default function EntityPanel({ node, onClose, isDarkMode, onOpenTimeline,
   const textPrimary = isDarkMode ? 'text-gray-100' : 'text-gray-900';
   const textSub = isDarkMode ? 'text-gray-400' : 'text-gray-500';
 
+  const [aiAnalysis, setAiAnalysis] = React.useState<{ summary?: string, evidenceUsed?: string, confidence?: number, recommendedAction?: string } | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = React.useState(false);
+
+  React.useEffect(() => {
+    setAiAnalysis(null);
+  }, [node?.id]);
+
+  const handleGenerateAnalysis = async () => {
+    if (!node) return;
+    setIsAnalyzing(true);
+    try {
+      const res = await fetch('/api/intelligence/explain', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ node })
+      });
+      if (!res.ok) throw new Error('API failed');
+      const data = await res.json();
+      setAiAnalysis(data);
+    } catch (err) {
+      console.error(err);
+    }
+    setIsAnalyzing(false);
+  };
+
   return (
     <AnimatePresence>
       {node && (
@@ -102,6 +127,53 @@ export default function EntityPanel({ node, onClose, isDarkMode, onOpenTimeline,
           {/* Body */}
           <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
             
+            {/* AI Analysis Section */}
+            {!aiAnalysis ? (
+              <button
+                onClick={handleGenerateAnalysis}
+                disabled={isAnalyzing}
+                className={`w-full flex flex-col items-center justify-center gap-2 p-4 rounded-xl border border-dashed transition-all ${isDarkMode ? 'border-gray-700 hover:border-blue-500 hover:bg-blue-500/10' : 'border-gray-300 hover:border-blue-500 hover:bg-blue-50'}`}
+              >
+                {isAnalyzing ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <Zap size={18} className="animate-pulse text-blue-500" />
+                    <span className={`text-xs font-bold ${textPrimary}`}>Gemini analyzing...</span>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-2">
+                    <Sparkles size={18} className="text-blue-500" />
+                    <span className={`text-xs font-bold ${textPrimary}`}>Generate AI Analysis</span>
+                    <span className={`text-[10px] text-center ${textSub}`}>Connect to Gemini backend to explain this entity's role in the network.</span>
+                  </div>
+                )}
+              </button>
+            ) : (
+              <div className={`p-3 rounded-xl border ${subCardBg}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className={`text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 text-blue-500`}>
+                    <Sparkles size={12} /> Gemini Analyst
+                  </span>
+                  <span className={`text-[10px] font-black ${aiAnalysis.confidence && aiAnalysis.confidence > 80 ? 'text-green-500' : 'text-orange-500'}`}>
+                    {aiAnalysis.confidence}% Conf
+                  </span>
+                </div>
+                <div className="flex flex-col gap-3">
+                  <div>
+                    <span className={`text-[9px] font-bold uppercase ${textSub}`}>Summary</span>
+                    <p className={`text-[11px] leading-relaxed mt-0.5 ${textPrimary}`}>{aiAnalysis.summary}</p>
+                  </div>
+                  <div>
+                    <span className={`text-[9px] font-bold uppercase ${textSub}`}>Evidence Link</span>
+                    <p className={`text-[11px] leading-relaxed mt-0.5 ${textPrimary}`}>{aiAnalysis.evidenceUsed}</p>
+                  </div>
+                  <div className="bg-blue-500/10 border border-blue-500/20 p-2 rounded-lg">
+                    <span className={`text-[9px] font-bold uppercase text-blue-400`}>Recommended Action</span>
+                    <p className={`text-[11px] leading-relaxed mt-0.5 ${textPrimary}`}>{aiAnalysis.recommendedAction}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Details Grid */}
             {node.details && Object.keys(node.details).length > 0 && (
               <div className={`p-3 rounded-xl border ${subCardBg}`}>
@@ -150,38 +222,6 @@ export default function EntityPanel({ node, onClose, isDarkMode, onOpenTimeline,
                 </div>
               </div>
             )}
-
-            {/* Plotly Mini Analytics Breakdown */}
-            <div className={`p-3 rounded-xl border ${subCardBg}`}>
-              <div className="flex items-center justify-between mb-2">
-                <span className={`text-[10px] font-black uppercase tracking-wider ${textSub}`}>📊 Plotly Entity Breakdown</span>
-                <span className="text-[9px] font-mono text-[#FF5A1F] font-bold">Live</span>
-              </div>
-              <div className="h-[130px] w-full rounded-lg overflow-hidden border" style={{ borderColor: isDarkMode ? '#27272A' : '#E2E8F0' }}>
-                <Plot
-                  data={[{
-                    y: ['Stolen Gold', 'Cash Seizure', 'Vault Damage', 'Gate Rammed'],
-                    x: [31.5, 4.8, 1.5, 0.85],
-                    type: 'bar' as const,
-                    orientation: 'h' as const,
-                    marker: { color: ['#3B82F6', '#60A5FA', '#EC4899', '#F43F5E'] },
-                    text: ['₹31.5L', '₹4.8L', '₹1.5L', '₹85K'],
-                    textposition: 'auto' as const,
-                  }]}
-                  layout={{
-                    autosize: true,
-                    margin: { l: 75, r: 15, b: 15, t: 5 },
-                    plot_bgcolor: isDarkMode ? '#111115' : '#FFFFFF',
-                    paper_bgcolor: isDarkMode ? '#111115' : '#FFFFFF',
-                    font: { color: isDarkMode ? '#F3F4F6' : '#111827', size: 8 },
-                    xaxis: { showgrid: false, zeroline: false },
-                    yaxis: { automargin: true },
-                  }}
-                  style={{ width: '100%', height: '100%' }}
-                  config={{ responsive: true, displayModeBar: false }}
-                />
-              </div>
-            </div>
           </div>
 
           {/* Footer Actions */}
