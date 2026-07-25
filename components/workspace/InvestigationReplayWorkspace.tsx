@@ -24,12 +24,6 @@ export default function InvestigationReplayWorkspace() {
   const cardBg = isDarkMode ? 'bg-[#111827] border-gray-800' : 'bg-white border-gray-200';
 
   useEffect(() => {
-    // Reset when component mounts
-    setCurrentStep(0);
-    setIsPlaying(true);
-  }, []);
-
-  useEffect(() => {
     let interval: NodeJS.Timeout;
     if (isPlaying && currentStep < REPLAY_EVENTS.length) {
       interval = setInterval(() => {

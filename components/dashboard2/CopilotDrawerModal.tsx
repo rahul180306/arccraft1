@@ -493,6 +493,29 @@ export default function CopilotDrawerModal({ isOpen, onClose, initialPrompt }: C
               Fast Response
             </label>
           </div>
+          {/* P1 Quick Copilot Action Chips */}
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar mb-2 pb-1">
+            {[
+              { label: '📄 Summarize Case', prompt: 'Provide a concise summary brief of FIR KRP/2026/0456' },
+              { label: '💡 Suggest Next Steps', prompt: 'What are the top 3 next best actions for the Investigating Officer on this case?' },
+              { label: '🔍 Explain Evidence', prompt: 'Explain the forensic fingerprint match and CCTV evidence details' },
+              { label: '🗣️ Draft Witness Questions', prompt: 'Draft a Section 161 CrPC interrogation questioning list for the accused' }
+            ].map((chip) => (
+              <button
+                key={chip.label}
+                type="button"
+                onClick={() => {
+                  if (!isTyping) {
+                    sendMessage(chip.prompt);
+                  }
+                }}
+                className="px-2.5 py-1 rounded-full bg-[#111827] text-white hover:bg-[#FF5A1F] border border-white/10 text-[10px] font-bold whitespace-nowrap transition-colors cursor-pointer shrink-0"
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+
           {attachment && (
             <div className="flex items-center gap-2 p-2 mb-2 bg-indigo-50 border border-indigo-100 rounded-xl relative">
               <div className="flex-1 overflow-hidden">

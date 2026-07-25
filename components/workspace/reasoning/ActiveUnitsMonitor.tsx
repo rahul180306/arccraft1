@@ -63,66 +63,71 @@ export default function ActiveUnitsMonitor({ currentPhaseIndex, isSimulating }: 
   ]);
 
   useEffect(() => {
-    if (!isSimulating && currentPhaseIndex === -1) {
-      setUnits(units.map(u => ({ ...u, statusText: 'Standing By', progress: 0, isActive: false, isComplete: false })));
-      return;
-    }
-
-    if (currentPhaseIndex >= 5) {
-      setUnits(units.map(u => ({ ...u, statusText: 'Completed', progress: 100, isActive: false, isComplete: true })));
-      return;
-    }
-
-    const newUnits = [...units];
-    
-    // Orchestrator
-    if (currentPhaseIndex === 0 || currentPhaseIndex === 3) {
-      newUnits[0].isActive = true;
-      newUnits[0].statusText = currentPhaseIndex === 0 ? 'Coordinating Investigation' : 'Resolving Conflicts';
-      newUnits[0].progress = currentPhaseIndex === 0 ? 30 : 80;
-    } else {
-      newUnits[0].isActive = false;
-      newUnits[0].statusText = currentPhaseIndex > 0 ? 'Monitoring' : 'Standing By';
-      newUnits[0].progress = currentPhaseIndex > 0 ? 100 : 0;
-      newUnits[0].isComplete = currentPhaseIndex > 0;
-    }
-
-    // Evidence & Video
-    if (currentPhaseIndex === 1) {
-      newUnits[1].isActive = true;
-      newUnits[1].statusText = 'Scanning CCTV_014.mp4...';
-      newUnits[1].progress = 65;
-      
-      newUnits[2].isActive = true;
-      newUnits[2].statusText = 'Matching AFIS-FP-01...';
-      newUnits[2].progress = 70;
-    } else if (currentPhaseIndex > 1) {
-      newUnits[1].isActive = false;
-      newUnits[1].statusText = 'Completed';
-      newUnits[1].progress = 100;
-      newUnits[1].isComplete = true;
-
-      newUnits[2].isActive = false;
-      newUnits[2].statusText = 'Completed';
-      newUnits[2].progress = 100;
-      newUnits[2].isComplete = true;
-    }
-
-    // Legal
-    if (currentPhaseIndex === 4) {
-      newUnits[3].isActive = true;
-      newUnits[3].statusText = 'Validating BNSS Sections...';
-      newUnits[3].progress = 85;
-    } else if (currentPhaseIndex > 4) {
-      newUnits[3].isActive = false;
-      newUnits[3].statusText = 'Verified';
-      newUnits[3].progress = 100;
-      newUnits[3].isComplete = true;
-    }
-
-    setUnits(newUnits);
-
     let tickInterval: any;
+
+    const frameId = requestAnimationFrame(() => {
+      if (!isSimulating && currentPhaseIndex === -1) {
+        setUnits(prev => prev.map(u => ({ ...u, statusText: 'Standing By', progress: 0, isActive: false, isComplete: false })));
+        return;
+      }
+
+      if (currentPhaseIndex >= 5) {
+        setUnits(prev => prev.map(u => ({ ...u, statusText: 'Completed', progress: 100, isActive: false, isComplete: true })));
+        return;
+      }
+
+      setUnits(prev => {
+        const newUnits = [...prev];
+        
+        // Orchestrator
+        if (currentPhaseIndex === 0 || currentPhaseIndex === 3) {
+          newUnits[0].isActive = true;
+          newUnits[0].statusText = currentPhaseIndex === 0 ? 'Coordinating Investigation' : 'Resolving Conflicts';
+          newUnits[0].progress = currentPhaseIndex === 0 ? 30 : 80;
+        } else {
+          newUnits[0].isActive = false;
+          newUnits[0].statusText = currentPhaseIndex > 0 ? 'Monitoring' : 'Standing By';
+          newUnits[0].progress = currentPhaseIndex > 0 ? 100 : 0;
+          newUnits[0].isComplete = currentPhaseIndex > 0;
+        }
+
+        // Evidence & Video
+        if (currentPhaseIndex === 1) {
+          newUnits[1].isActive = true;
+          newUnits[1].statusText = 'Scanning CCTV_014.mp4...';
+          newUnits[1].progress = 65;
+          
+          newUnits[2].isActive = true;
+          newUnits[2].statusText = 'Matching AFIS-FP-01...';
+          newUnits[2].progress = 70;
+        } else if (currentPhaseIndex > 1) {
+          newUnits[1].isActive = false;
+          newUnits[1].statusText = 'Completed';
+          newUnits[1].progress = 100;
+          newUnits[1].isComplete = true;
+
+          newUnits[2].isActive = false;
+          newUnits[2].statusText = 'Completed';
+          newUnits[2].progress = 100;
+          newUnits[2].isComplete = true;
+        }
+
+        // Legal
+        if (currentPhaseIndex === 4) {
+          newUnits[3].isActive = true;
+          newUnits[3].statusText = 'Validating BNSS Sections...';
+          newUnits[3].progress = 85;
+        } else if (currentPhaseIndex > 4) {
+          newUnits[3].isActive = false;
+          newUnits[3].statusText = 'Verified';
+          newUnits[3].progress = 100;
+          newUnits[3].isComplete = true;
+        }
+
+        return newUnits;
+      });
+    });
+
     if (isSimulating) {
       tickInterval = setInterval(() => {
         setUnits(prev => prev.map(u => {
@@ -134,7 +139,10 @@ export default function ActiveUnitsMonitor({ currentPhaseIndex, isSimulating }: 
       }, 500);
     }
 
-    return () => clearInterval(tickInterval);
+    return () => {
+      cancelAnimationFrame(frameId);
+      clearInterval(tickInterval);
+    };
   }, [currentPhaseIndex, isSimulating]);
 
 

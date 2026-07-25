@@ -35,8 +35,8 @@ function DashboardWorkspaceComponent() {
 
       {/* FULL-SCREEN COMMAND CENTER GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-        {/* LEFT PANEL: INVESTIGATION HEALTH & QUICK ACTIONS */}
-        <motion.div variants={pageItemVariants} className="lg:col-span-3 flex flex-col gap-4">
+        {/* LEFT PANEL: CASE COMMAND CENTER */}
+        <motion.div variants={pageItemVariants} className="lg:col-span-4 flex flex-col gap-4">
           <LeftInvestigationPanel
             isDarkMode={isDarkMode}
             onContinueInvestigation={() => setContinueModalOpen(true)}
@@ -46,7 +46,7 @@ function DashboardWorkspaceComponent() {
         </motion.div>
 
         {/* CENTER HERO: KARNATAKA STATE MAP */}
-        <motion.div variants={pageItemVariants} className="lg:col-span-6 flex flex-col gap-4">
+        <motion.div variants={pageItemVariants} className="lg:col-span-5 flex flex-col gap-4">
           <KarnatakaMap
             isDarkMode={isDarkMode}
             onSelectDistrict={(dist) => {
@@ -57,7 +57,7 @@ function DashboardWorkspaceComponent() {
           />
         </motion.div>
 
-        {/* RIGHT PANEL: REAL-TIME INTELLIGENCE & JOBS */}
+        {/* RIGHT PANEL: AI INTELLIGENCE & NOTIFICATIONS */}
         <motion.div variants={pageItemVariants} className="lg:col-span-3 flex flex-col gap-4">
           <RightIntelligencePanel
             isDarkMode={isDarkMode}
