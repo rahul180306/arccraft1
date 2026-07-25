@@ -1,14 +1,19 @@
 'use client';
 
 import React from 'react';
-import { Search, Sun, Moon, Bell, ChevronDown } from 'lucide-react';
+import { Search, Sun, Moon, Bell, ChevronDown, Folders } from 'lucide-react';
 import { useUIStore } from '@/lib/stores/uiStore';
+import { useInvestigationStore } from '@/lib/stores/investigationStore';
 
 export default function Header() {
   const isDarkMode = useUIStore((s) => s.isDarkMode);
   const toggleTheme = useUIStore((s) => s.toggleTheme);
   const setCommandPaletteOpen = useUIStore((s) => s.setCommandPaletteOpen);
   const showToast = useUIStore((s) => s.showToast);
+  const openFIRSwitcher = useUIStore((s) => s.openFIRSwitcher);
+
+  const activeCase = useInvestigationStore((s) => s.activeCase);
+  const casesCount = useInvestigationStore((s) => s.cases.length);
 
   return (
     <header className={`border-b h-16 px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30 shrink-0 transition-colors duration-200 ${
@@ -45,6 +50,43 @@ export default function Header() {
 
       {/* Right Header Controls */}
       <div className="flex items-center gap-2 sm:gap-3 shrink-0 ml-2 sm:ml-4">
+
+        {/* FIR SWITCHER — Active Case Pill */}
+        {activeCase && (
+          <button
+            onClick={openFIRSwitcher}
+            title={`Active FIR: ${activeCase.crimeNo} — Click to switch`}
+            className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer group ${
+              isDarkMode
+                ? 'bg-[#111827] border-[#1F2937] hover:border-[#FF5A1F]/50 text-gray-200'
+                : 'bg-[#F8FAFC] border-[#E2E8F0] hover:border-[#FF5A1F]/40 text-slate-800'
+            }`}
+          >
+            <Folders size={13} className="text-[#FF5A1F] shrink-0" />
+            <div className="flex flex-col items-start leading-none">
+              <span className="text-[9px] font-mono text-gray-400 uppercase tracking-wider">Active FIR</span>
+              <span className="font-black font-mono text-[11px] group-hover:text-[#FF5A1F] transition-colors">
+                #{activeCase.crimeNo.slice(-8)}
+              </span>
+            </div>
+            <div className="w-1.5 h-1.5 rounded-full bg-[#FF5A1F] shrink-0 animate-pulse" />
+            <ChevronDown size={11} className="text-gray-400 ml-0.5" />
+          </button>
+        )}
+
+        {/* Switch FIR button (always visible) */}
+        <button
+          onClick={openFIRSwitcher}
+          title={`Switch active FIR · ${casesCount} cases loaded`}
+          className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#FF5A1F]/10 hover:bg-[#FF5A1F]/20 border border-[#FF5A1F]/30 text-[#FF5A1F] text-xs font-bold transition-all cursor-pointer shadow-xs"
+        >
+          <Folders size={13} />
+          <span className="hidden sm:inline">Switch FIR</span>
+          <span className={`text-[9px] font-mono px-1 py-0.5 rounded-md font-black ${isDarkMode ? 'bg-[#FF5A1F]/20' : 'bg-[#FF5A1F]/15'}`}>
+            {casesCount > 0 ? casesCount.toLocaleString() : '—'}
+          </span>
+        </button>
+
         {/* Theme Shift Dropdown Pill */}
         <button 
           onClick={() => {
@@ -105,4 +147,3 @@ export default function Header() {
     </header>
   );
 }
-

@@ -25,6 +25,8 @@ import {
 } from 'lucide-react';
 import { useUIStore } from '@/lib/stores/uiStore';
 import { exportToPDF } from '@/lib/pdfExport';
+import { useInvestigationStore } from '@/lib/stores/investigationStore';
+import { useDashboardMetrics } from '@/lib/stores/selectors';
 
 // Import micro-components
 import ActiveUnitsMonitor from './reasoning/ActiveUnitsMonitor';
@@ -35,6 +37,9 @@ import InvestigationSummaryAnimation from './reasoning/InvestigationSummaryAnima
 export default function ReasoningEngineWorkspace() {
   const isDarkMode = useUIStore((s) => s.isDarkMode);
   const showToast = useUIStore((s) => s.showToast);
+
+  const activeCase = useInvestigationStore(s => s.activeCase)!;
+  const metrics = useDashboardMetrics();
 
   const [chatEvents, setChatEvents] = useState<any[]>([]);
   const [artifactMd, setArtifactMd] = useState<string>('');
@@ -57,158 +62,138 @@ export default function ReasoningEngineWorkspace() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatEvents]);
 
-  const defaultArtifactMd = `# 🛡️ KARNATAKA STATE POLICE — OFFICIAL CASE DOSSIER
+  // Update artifact, decision record, and stream when active case changes
+  useEffect(() => {
+    const buildDefaultArtifact = () => `# 🛡️ KARNATAKA STATE POLICE — OFFICIAL CASE DOSSIER
 **CCTNS Crime Analytics Engine | Confidential Law Enforcement Document**  
-*Document ID: KSP-DOC-2026-0456 | Status: Verified by Investigation Orchestrator*
+*Document ID: KSP-DOC-${activeCase.crimeNo} | Status: Verified by Investigation Orchestrator*
 
 ---
 
 ## 1. FIR Context & Administrative Metadata
 | Field | Value |
 |---|---|
-| **FIR Number** | \`104430006202600001\` |
-| **Police Station** | Anekal Police Station, Bengaluru City |
-| **Registration Date** | 10 Feb 2026, 08:30 AM |
-| **Investigating Officer** | Inspector Arjun (KGID KSP20180091) |
-| **Primary Suspect** | **Suresh K. (Alias "Chotte", PersonID A1)** — *Habitual Offender* |
+| **FIR Number** | \`${activeCase.crimeNo}\` |
+| **Case Number** | ${activeCase.caseNo} |
+| **Police Station** | ${activeCase.policeStation}, ${activeCase.district} |
+| **Registration Date** | ${activeCase.registrationDate} |
+| **Incident Date** | ${activeCase.incidentDate} |
+| **Investigating Officer** | ${activeCase.ioName} (${activeCase.ioKgid}) |
+| **Primary Suspect** | **${activeCase.accused[0]?.name ?? 'Unknown'} (PersonID ${activeCase.accused[0]?.personId ?? 'A1'}, Age ${activeCase.accused[0]?.age ?? '?'})** |
+| **Case Status** | ${activeCase.caseStatus} |
+| **Gravity** | ${activeCase.gravity} |
+| **Category** | ${activeCase.category} |
 
 ---
 
-## 2. Executive Summary & Incident Timeline
-On 10 Feb 2026 at 02:14 AM, an armed night break-in occurred at **Lakshmi Jewelry Store, Anekal Main Road**. Safes were breached using gas cutters, and gold ornaments valued at **₹45 Lakhs** were stolen.
+## 2. Executive Summary & Incident Analysis
+Complaint registered at **${activeCase.policeStation}** regarding **${activeCase.crimeHead} — ${activeCase.crimeSubHead}**. ${activeCase.briefFacts}
 
-Multi-agent reasoning by the **Investigation Orchestrator** has established the primary suspect as habitual offender **Suresh K. (PersonID A1)** with **95.2% overall confidence**, linking this crime to a secondary cyber SIM-swap scam in Mysuru (FIR #104440008202600002).
+Investigation assigned to IO **${activeCase.ioName} (${activeCase.ioKgid})**. Multi-agent reasoning by the **Investigation Orchestrator** has identified **${activeCase.accused.length} accused** with supporting victim testimony from **${activeCase.victims[0]?.name ?? 'Victim'}**.
 
----
+**Accused in this FIR:**
+${activeCase.accused.map((a, i) => `${i+1}. ${a.name} (Age: ${a.age}, ${a.gender}, PersonID: ${a.personId})`).join('\n')}
 
-## 3. Specialist Police Unit Findings
+**Victim(s):**
+${activeCase.victims.map((v, i) => `${i+1}. ${v.name} (Age: ${v.age}, ${v.gender})`).join('\n')}
 
-### 📹 Digital Evidence Unit Report
-- **Vehicle Identification**: White Innova (Reg: \`KA-03-MN-4481\`).
-- **Source**: CCTV_014.mp4, Frame 291.
-- **Confidence**: **96%**
-
-### 🔬 Forensic Analysis Unit Report
-- **Biometric Match**: AFIS Latent Fingerprint Sample \`#FP-01\` matched **Suresh K. (PersonID A1)**.
-- **Match Score**: **94.2%**
-
-### 🕸 Criminal Intelligence Unit Report
-- **Habitual Offender Match**: Suspect \`PersonID A1\` cross-indexed in FIR \`104440008202600002\` (Devaraja PS, Mysuru City).
-- **Risk Score**: **92 / 100 (Critical Risk)**
+**Complainant**: ${activeCase.complainant}
 
 ---
 
-## 4. Tactical & Legal Recommendations (BNS / BNSS)
-1. **Arrest Warrant**: Issue Non-Bailable Warrant under **BNSS Section 35**.
-2. **Charges**: Frame charges under **BNS Section 305** (Aggravated Theft) & **BNS Section 331** (Night House-trespass).
-3. **Seizure**: Execute formal seizure memo under **Bharatiya Sakshya Adhiniyam (BSA)** for recovered gas cutter tools and ₹45L gold.
-`;
+## 3. Legal Sections & Database Statistics
+${activeCase.sections.length > 0 ? activeCase.sections.map(s => `- ${s}`).join('\n') : '- IPC Sections applicable based on crime classification'}
 
-  const defaultDecisionRecord = {
-    id: "#AI-30291",
-    accepted_findings: ["Video Agent Finding (96%)", "AFIS Fingerprint Match (94.2%)", "Timeline Verification (99%)"],
-    overruled_findings: ["Witness Statement #02 (74%) - Contradicts CCTV color logic"],
-    consensus_score: "5 / 5 Units",
-    overall_confidence: 95,
-    next_actions: ["Issue Non-Bailable Warrant", "Frame BNS Section 305 Charges"],
-    confidence_story: [
-      { step: "Evidence Collected", confidence: 72 },
-      { step: "Vehicle Identified", confidence: 81 },
-      { step: "Fingerprint Matched", confidence: 90 },
-      { step: "Cross-referenced", confidence: 95 }
-    ],
-    uncertainties: {
-      known: ["Primary Suspect Identity", "Getaway Vehicle", "Stolen Amount", "Modus Operandi"],
-      unknown: ["Second Suspect Identity", "Weapon Source", "Current Hideout Location"]
-    },
-    health: {
-      evidence: "Verified",
-      timeline: "Complete",
-      legal: "Verified",
-      witnesses: "Weak",
-      digital: "Excellent"
-    }
-  };
+- **District ${activeCase.district} Statistics**: Out of ${metrics.totalFIRs.toLocaleString()} total state cases, this aligns with the ${metrics.underInvestigation} active investigations.`;
 
-  const defaultStream = [
-    {
-      id: "msg-1",
-      role: "Orchestrator",
-      sender_name: "Investigation Orchestrator",
-      avatar_bg: "bg-[#FF5A1F]",
-      timestamp: "09:12:45 AM",
-      content: "Initiating investigation cycle for **FIR #104430006202600001 (Anekal Commercial Burglary)**. Delegating tasks to specialist units.",
-      type: "orchestrator_directive",
-      priority: "Critical",
-      assigned_to: "Video, Evidence, and Legal Units",
-      expected_output: "Vehicle ID, Biometric Match, BNS Sections"
-    },
-    {
-      id: "msg-2",
-      role: "Video Agent",
-      sender_name: "Video Intelligence Agent",
-      avatar_bg: "bg-blue-600",
-      timestamp: "09:13:10 AM",
-      content: "### Video Analysis Report Submitted\n- **Finding**: Getaway vehicle identified as **White Innova (Reg: KA03MN4481)** from CCTV_014.mp4 Frame 291.",
-      type: "agent_report",
-      status: "Verified",
-      finding: "Getaway vehicle identified as White Innova (Reg: KA03MN4481)",
-      confidence: 96,
-      evidence: ["CCTV_014.mp4", "Frame-291"],
-      recommendation: "Run ANPR check on KA03MN4481"
-    },
-    {
-      id: "msg-3",
-      role: "Evidence Agent",
-      sender_name: "Evidence Audit Agent",
-      avatar_bg: "bg-purple-600",
-      timestamp: "09:13:25 AM",
-      content: "### Evidence Report Submitted\n- **Finding**: AFIS Fingerprint Latent Sample #FP-01 matched suspect **Suresh K. (PersonID A1)** with 94.2% biometric match.",
-      type: "agent_report",
-      status: "Verified",
-      finding: "AFIS Fingerprint matched Suresh K. (PersonID A1)",
-      confidence: 94,
-      evidence: ["AFIS-FP-01"]
-    },
-    {
-      id: "msg-4",
-      role: "Orchestrator",
-      sender_name: "Investigation Orchestrator",
-      avatar_bg: "bg-[#FF5A1F]",
-      timestamp: "09:14:00 AM",
-      content: "Waiting for unit consensus before finalizing the decision record...",
-      type: "consensus_forming"
-    },
-    {
-      id: "msg-5",
-      role: "Orchestrator",
-      sender_name: "Investigation Orchestrator",
-      avatar_bg: "bg-[#FF5A1F]",
-      timestamp: "09:14:15 AM",
-      content: "### ⚖️ Evidence Conflict Resolution & Decision Record #AI-30291\n- **Conflict**: Witness #02 Statement (Blue Bike 74%) contradicts CCTV analysis.\n- **Decision**: **Overruled Witness Statement** based on 96% ANPR confidence.\n- **Status**: **Broadcasting Decision Record #AI-30291**",
-      type: "decision_record"
-    },
-    {
-      id: "msg-6",
-      role: "Report Agent",
-      sender_name: "Report Compilation Agent",
-      avatar_bg: "bg-rose-600",
-      timestamp: "09:14:45 AM",
-      content: "### 📂 Live Investigation Report Compiled\nAll accepted findings compiled into interactive Executive Brief. Click below to open document.",
-      type: "report_ready",
-      artifact_title: "INVESTIGATION_REPORT.md"
-    }
-  ];
+    const defaultDecisionRecord = {
+      id: `#AI-${activeCase.caseId}${activeCase.crimeNo.slice(-4)}`,
+      accepted_findings: [`Primary Accused: ${activeCase.accused[0]?.name} (95%)`, `Victim: ${activeCase.victims[0]?.name} (100%)`, `IO: ${activeCase.ioName} (${activeCase.ioKgid})`],
+      overruled_findings: activeCase.sections.length === 0 ? ["No IPC sections explicitly linked in dataset"] : [],
+      consensus_score: "5 / 5 Units",
+      overall_confidence: activeCase.hasArrest ? 95 : 78,
+      next_actions: [activeCase.hasArrest ? `Arrest completed ${activeCase.arrestDate}` : 'Issue Arrest Warrant', activeCase.hasChargesheet ? 'Chargesheet filed — proceed to court' : 'File chargesheet within BNSS timeline'],
+      confidence_story: [
+        { step: "FIR Registered", confidence: 60 },
+        { step: "Accused Identified", confidence: 75 },
+        { step: activeCase.hasArrest ? 'Arrest Made' : 'Warrant Issued', confidence: 88 },
+        { step: activeCase.hasChargesheet ? 'Chargesheet Filed' : 'Investigation Active', confidence: activeCase.hasArrest ? 95 : 78 }
+      ],
+      uncertainties: {
+        known: [`Primary Suspect: ${activeCase.accused[0]?.name}`, `Victim: ${activeCase.victims[0]?.name}`, `District: ${activeCase.district}`, `PS: ${activeCase.policeStation}`],
+        unknown: activeCase.accused.slice(1).map(a => `Accused role of ${a.name} (Age ${a.age})`)
+      },
+      health: {
+        evidence: activeCase.hasArrest ? 'Verified' : 'Pending',
+        timeline: 'Complete',
+        legal: activeCase.hasChargesheet ? 'Verified' : 'In Progress',
+        witnesses: activeCase.victims.length > 0 ? 'Available' : 'Weak',
+        digital: activeCase.sections.length > 0 ? 'Excellent' : 'Moderate'
+      }
+    };
 
-  const loadStreamData = async () => {
-    setChatEvents(defaultStream);
+    const defaultStream = [
+      {
+        id: "msg-1",
+        role: "Investigation Orchestrator",
+        sender_name: "Investigation Orchestrator",
+        avatar_bg: "bg-[#FF5A1F]",
+        timestamp: "09:12:00 AM",
+        content: `### 🚨 Investigation Swarm Initialized\nAnalyzing incoming FIR **${activeCase.crimeNo}** from **${activeCase.policeStation}**. Dispatching analytical sub-agents...`,
+        type: "system"
+      },
+      {
+        id: "msg-2",
+        role: "Evidence Agent",
+        sender_name: "Evidence Cross-Reference Agent",
+        avatar_bg: "bg-blue-600",
+        timestamp: "09:12:45 AM",
+        content: `### 📑 Evidence Triage Complete\n- **Physical Evidence**: Found corresponding FIR logs for ${activeCase.accused.length} accused.\n- **Statements**: Victim statements present.\n- **Digital**: No CCTV explicit reference found, checking contextual databases.`,
+        type: "update"
+      },
+      {
+        id: "msg-3",
+        role: "Legal Agent",
+        sender_name: "Legal Strategy Agent",
+        avatar_bg: "bg-purple-600",
+        timestamp: "09:13:20 AM",
+        content: `### ⚖️ Legal Framework Analysis\n- **Sections Applied**: ${activeCase.sections.join(', ') || 'General Offense'}\n- **Timeline Compliance**: Arrest status is ${activeCase.hasArrest ? 'VERIFIED' : 'PENDING'}. BNSS compliance check initiated.`,
+        type: "update"
+      },
+      {
+        id: "msg-4",
+        role: "Intelligence Agent",
+        sender_name: "Intelligence Network Agent",
+        avatar_bg: "bg-emerald-600",
+        timestamp: "09:13:55 AM",
+        content: `### 🌐 Network & M.O. Correlation\n- **Historical Match**: Modus operandi matches 4 past cases in ${activeCase.district} district.\n- **Suspect Profile**: Primary suspect has ${activeCase.hasArrest ? 'prior' : 'no prior'} matched records in ASTR database.`,
+        type: "update"
+      },
+      {
+        id: "msg-5",
+        role: "Investigation Orchestrator",
+        sender_name: "Investigation Orchestrator",
+        avatar_bg: "bg-[#FF5A1F]",
+        timestamp: "09:14:15 AM",
+        content: "### ⚖️ Evidence Conflict Resolution & Decision Record #AI-30291\n- **Conflict**: Minor contradictions in location timeline.\n- **Decision**: **Proceeding with primary evidence** based on physical corroboration.\n- **Status**: **Broadcasting Decision Record #AI-30291**",
+        type: "decision_record"
+      },
+      {
+        id: "msg-6",
+        role: "Report Agent",
+        sender_name: "Report Compilation Agent",
+        avatar_bg: "bg-rose-600",
+        timestamp: "09:14:45 AM",
+        content: "### 📂 Live Investigation Report Compiled\nAll accepted findings compiled into interactive Executive Brief. Click below to open document.",
+        type: "report_ready",
+        artifact_title: "INVESTIGATION_REPORT.md"
+      }
+    ];
+
+    setArtifactMd(buildDefaultArtifact());
     setDecisionRecord(defaultDecisionRecord);
-    setArtifactMd(defaultArtifactMd);
-  };
-
-  useEffect(() => {
-    loadStreamData();
-  }, []);
+    setChatEvents(defaultStream);
+  }, [activeCase, metrics]);
 
   const generateAIReport = async () => {
     setIsGeneratingAI(true);
@@ -227,7 +212,7 @@ Multi-agent reasoning by the **Investigation Orchestrator** has established the 
       }
     } catch (err) {
       console.error(err);
-      setArtifactMd(defaultArtifactMd);
+      setArtifactMd(artifactMd || `# 🛡️ KARNATAKA STATE POLICE — OFFICIAL CASE DOSSIER\n**FIR Number**: \`${activeCase.crimeNo}\``);
       setIsArtifactOpen(true);
     } finally {
       setIsGeneratingAI(false);
@@ -776,7 +761,7 @@ Multi-agent reasoning by the **Investigation Orchestrator** has established the 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <InvestigationHealthGauge 
                       score={decisionRecord.overall_confidence} 
-                      health={decisionRecord.health || defaultDecisionRecord.health} 
+                      health={decisionRecord.health || { evidence: 'Pending', timeline: 'Complete', legal: 'In Progress', witnesses: 'Available', digital: 'Moderate' }} 
                     />
                     
                     <div className={`p-4 rounded-xl border-2 flex flex-col justify-between ${
@@ -815,7 +800,7 @@ Multi-agent reasoning by the **Investigation Orchestrator** has established the 
                     <div className={`p-4 rounded-xl border-2 ${isDarkMode ? 'bg-[#1C1C21] border-gray-800' : 'bg-white border-gray-200'}`}>
                       <h4 className="font-black uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-4 text-[10px]">Reasoning Timeline</h4>
                       <div className="flex items-center gap-2">
-                        {(decisionRecord.confidence_story || defaultDecisionRecord.confidence_story).map((story: any, idx: number, arr: any[]) => (
+                        {(decisionRecord.confidence_story || []).map((story: any, idx: number, arr: any[]) => (
                           <React.Fragment key={idx}>
                             <div className="flex flex-col items-center gap-1.5">
                               <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-[10px] font-mono font-bold ${
@@ -841,13 +826,13 @@ Multi-agent reasoning by the **Investigation Orchestrator** has established the 
                         <div>
                           <span className="flex items-center gap-1 text-[9px] font-black uppercase text-blue-500 mb-1"><ShieldCheck size={10}/> Knowns</span>
                           <ul className="pl-3 list-disc text-gray-700 dark:text-gray-300 font-medium">
-                            {(decisionRecord.uncertainties?.known || defaultDecisionRecord.uncertainties.known).slice(0, 2).map((k: string, i: number) => <li key={i}>{k}</li>)}
+                            {(decisionRecord.uncertainties?.known || []).slice(0, 2).map((k: string, i: number) => <li key={i}>{k}</li>)}
                           </ul>
                         </div>
                         <div>
                           <span className="flex items-center gap-1 text-[9px] font-black uppercase text-amber-500 mb-1"><AlertCircle size={10}/> Unknowns</span>
                           <ul className="pl-3 list-disc text-gray-700 dark:text-gray-300 font-medium">
-                            {(decisionRecord.uncertainties?.unknown || defaultDecisionRecord.uncertainties.unknown).slice(0, 2).map((u: string, i: number) => <li key={i}>{u}</li>)}
+                            {(decisionRecord.uncertainties?.unknown || []).slice(0, 2).map((u: string, i: number) => <li key={i}>{u}</li>)}
                           </ul>
                         </div>
                       </div>

@@ -26,6 +26,7 @@ import {
   GoogleTaskItem 
 } from '@/lib/googleTasks';
 import { User } from 'firebase/auth';
+import { useInvestigationStore } from '@/lib/stores/investigationStore';
 
 interface GoogleTasksPanelProps {
   isDarkMode: boolean;
@@ -57,14 +58,22 @@ export default function GoogleTasksPanel({
   // Delete confirmation state
   const [taskToDelete, setTaskToDelete] = useState<GoogleTaskItem | null>(null);
 
+  const activeCase = useInvestigationStore((s) => s.activeCase);
+
   // Default initial offline tasks as fallback if not signed in
-  const [localTasks, setLocalTasks] = useState<GoogleTaskItem[]>([
-    { id: 'loc-1', title: 'Collect FSL Blood Sample Report', notes: 'FIR KRP/2026/0456', status: 'needsAction', due: '2025-07-19T00:00:00.000Z' },
-    { id: 'loc-2', title: 'Record Statement of Witness (Ramesh)', notes: 'Witness Ramesh pending statement', status: 'needsAction', due: '2025-07-18T00:00:00.000Z' },
-    { id: 'loc-3', title: 'Obtain Call Detail Records (Airtel)', notes: 'Request sent July 20', status: 'needsAction', due: '2025-07-20T00:00:00.000Z' },
-    { id: 'loc-4', title: 'Verify Alibi of Accused Sandeep K.', notes: 'Check CCTV around garage', status: 'needsAction', due: '2025-07-21T00:00:00.000Z' },
-    { id: 'loc-5', title: 'Seize Weapon for Ballistic Test', notes: 'Latent prints on handle', status: 'needsAction', due: '2025-07-22T00:00:00.000Z' }
-  ]);
+  const [localTasks, setLocalTasks] = useState<GoogleTaskItem[]>([]);
+
+  useEffect(() => {
+    if (activeCase) {
+      setLocalTasks([
+        { id: 'loc-1', title: 'Collect FSL Blood Sample Report', notes: `FIR ${activeCase.crimeNo}`, status: 'needsAction', due: activeCase.registrationDate },
+        { id: 'loc-2', title: `Record Statement of Witness (${activeCase.victims?.[0]?.name || 'Unknown'})`, notes: 'Witness pending statement', status: 'needsAction', due: activeCase.incidentDate },
+        { id: 'loc-3', title: 'Obtain Call Detail Records', notes: 'Request sent to Nodal Officer', status: 'needsAction', due: activeCase.registrationDate },
+        { id: 'loc-4', title: `Verify Alibi of Accused ${activeCase.accused?.[0]?.name || 'Unknown'}`, notes: 'Check CCTV around area', status: 'needsAction', due: activeCase.registrationDate },
+        { id: 'loc-5', title: 'Seize Weapon for Ballistic Test', notes: 'Latent prints on handle', status: 'needsAction', due: activeCase.incidentDate }
+      ]);
+    }
+  }, [activeCase]);
 
   const loadTasks = async (accessToken?: string) => {
     setIsLoading(true);

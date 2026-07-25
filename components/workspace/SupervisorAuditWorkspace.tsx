@@ -44,6 +44,8 @@ import {
 } from 'lucide-react';
 
 import { useUIStore } from '@/lib/stores/uiStore';
+import { useInvestigationStore } from '@/lib/stores/investigationStore';
+import { type KSPCase } from '@/lib/data/realCases';
 
 // Optional import Google Workspace Panels
 import GoogleDocsPanel from './GoogleDocsPanel';
@@ -101,10 +103,117 @@ export interface AuditTrailItem {
   type: 'Update' | 'Evidence' | 'Review' | 'Flag';
 }
 
+const buildAssignments = (activeCase: KSPCase, availableCases: KSPCase[]): CaseAssignment[] => [
+  {
+    id: 'ASG-101',
+    caseNo: activeCase.crimeNo,
+    title: `${activeCase.crimeSubHead} — ${activeCase.crimeHead}`,
+    assignedTo: activeCase.ioName,
+    officerRole: 'Investigating Officer',
+    category: 'Investigation',
+    dueDate: activeCase.registrationDate,
+    status: activeCase.caseStatus === 'Under Investigation' ? 'Under Review' : activeCase.caseStatus === 'Charge Sheeted' ? 'On Time' : 'Closed',
+    complianceScore: activeCase.hasArrest ? 85 : 62,
+    priority: activeCase.gravity === 'Heinous' ? 'High' : 'Medium',
+    checklist: [
+      { step: `BNSS Section notice served to ${activeCase.accused[0]?.name ?? 'Accused'}`, status: activeCase.hasArrest ? 'completed' : 'flagged' },
+      { step: 'Case Diary (CD) updated within 24 Hours', status: 'flagged' },
+      { step: `Arrest: ${activeCase.hasArrest ? `Completed ${activeCase.arrestDate}` : 'Warrant Pending'}`, status: activeCase.hasArrest ? 'completed' : 'pending' },
+      { step: `Chargesheet: ${activeCase.hasChargesheet ? 'Filed' : 'Pending'}`, status: activeCase.hasChargesheet ? 'completed' : 'pending' }
+    ],
+    supervisorRemarks: `FIR ${activeCase.crimeNo} at ${activeCase.policeStation}. Status: ${activeCase.caseStatus}. IO: ${activeCase.ioName} (${activeCase.ioKgid}).`
+  },
+  {
+    id: 'ASG-102',
+    caseNo: availableCases[1]?.crimeNo ?? 'FIR-102',
+    title: `${availableCases[1]?.crimeSubHead ?? 'POCSO Case'} Review`,
+    assignedTo: availableCases[1]?.ioName ?? 'IO Officer',
+    officerRole: 'Investigating Officer',
+    category: 'Evidence',
+    dueDate: availableCases[1]?.registrationDate ?? 'Pending',
+    status: 'Under Review',
+    complianceScore: 85,
+    priority: 'High',
+    checklist: [
+      { step: 'Victim statement recorded (Special Procedure)', status: 'completed' },
+      { step: 'POCSO Special Court referral filed', status: 'completed' },
+      { step: 'Child Welfare Committee (CWC) notified', status: 'pending' }
+    ]
+  },
+  {
+    id: 'ASG-103',
+    caseNo: availableCases[2]?.crimeNo ?? 'FIR-103',
+    title: `${availableCases[2]?.crimeSubHead ?? 'Cyber Crime'} Investigation`,
+    assignedTo: availableCases[2]?.ioName ?? 'IO Officer',
+    officerRole: 'Cyber Crime Unit IO',
+    category: 'Investigation',
+    dueDate: availableCases[2]?.registrationDate ?? 'Pending',
+    status: 'On Time',
+    complianceScore: 92,
+    priority: 'Medium',
+    checklist: [
+      { step: 'IT Act Sec 66/67 sections invoked correctly', status: 'completed' },
+      { step: 'Platform preservation notice issued within 48 hrs', status: 'completed' },
+      { step: 'CERT-In notification filed', status: 'pending' }
+    ]
+  },
+  {
+    id: 'ASG-104',
+    caseNo: 'Witness Statements',
+    title: 'Complainant Harish K. & Spot Witnesses',
+    assignedTo: 'HC Kavya',
+    officerRole: 'Head Constable',
+    category: 'Investigation',
+    dueDate: '19 Jul 2026 12:00 PM',
+    status: 'On Time',
+    complianceScore: 90,
+    priority: 'Medium',
+    checklist: [
+      { step: 'Statement Recorded under Sec 180 BNSS', status: 'completed' },
+      { step: 'Audio Recording Encrypted & Uploaded', status: 'completed' }
+    ]
+  },
+  {
+    id: 'ASG-105',
+    caseNo: 'Vehicle Verification',
+    title: 'Registration KA03MN4481 White Innova Audit',
+    assignedTo: 'SI Naveen',
+    officerRole: 'Sub-Inspector',
+    category: 'Verification',
+    dueDate: '18 Jul 2026 03:00 PM',
+    status: 'On Time',
+    complianceScore: 88,
+    priority: 'Low',
+    checklist: [
+      { step: 'RTO Registration Certificate Validation', status: 'completed' },
+      { step: 'Chassis Number Physical Inspection Sheet', status: 'completed' }
+    ]
+  },
+  {
+    id: 'ASG-106',
+    caseNo: 'FIR KRP/2026/0448',
+    title: 'Cyber Fraud Online Banking Heist',
+    assignedTo: 'ASI Ramesh',
+    officerRole: 'Assistant Sub-Inspector',
+    category: 'Legal',
+    dueDate: '20 Jul 2026 11:00 AM',
+    status: 'On Time',
+    complianceScore: 95,
+    priority: 'Critical',
+    checklist: [
+      { step: 'Bank Account Freeze Requisition under Sec 106 BNSS', status: 'completed' },
+      { step: 'MHA Cyber Crime Portal Incident Linked', status: 'completed' },
+      { step: 'Telecom Operator CDR Request Submitted', status: 'pending' }
+    ]
+  }
+];
+
 export default function SupervisorAuditWorkspace() {
   const isDarkMode = useUIStore((s) => s.isDarkMode);
   const showToast = useUIStore((s) => s.showToast);
   const openCopilot = useUIStore((s) => s.openCopilot);
+  const activeCase = useInvestigationStore(s => s.activeCase)!;
+  const availableCases = useInvestigationStore(s => s.cases);
 
   // STYLING HELPERS
   const cardBg = isDarkMode 
@@ -146,111 +255,14 @@ export default function SupervisorAuditWorkspace() {
   const [newDueDate, setNewDueDate] = useState('');
   const [newPriority, setNewPriority] = useState<CaseAssignment['priority']>('Medium');
 
-  // INITIAL STATE DATA MATCHING REFERENCE IMAGE
-  const [assignments, setAssignments] = useState<CaseAssignment[]>([
-    {
-      id: 'ASG-101',
-      caseNo: 'FIR KRP/2026/0456',
-      title: 'Armed House Burglary & Theft',
-      assignedTo: 'HC Kavya',
-      officerRole: 'Head Constable',
-      category: 'Investigation',
-      dueDate: '18 Jul 2026 10:00 AM',
-      status: 'Overdue',
-      complianceScore: 68,
-      priority: 'High',
-      checklist: [
-        { step: 'BNSS 35(3) Notice Served to Suspects', status: 'completed' },
-        { step: 'Case Diary (CD) entries updated within 24 Hours', status: 'flagged' },
-        { step: 'Crime Scene Seizure Memo & Digital Fingerprint Hash', status: 'pending' },
-        { step: 'Form 173 Charge-Sheet Draft Inspection', status: 'pending' }
-      ],
-      supervisorRemarks: 'Case Diary submission delayed by 48 hours. Issued written requisition notice.'
-    },
-    {
-      id: 'ASG-102',
-      caseNo: 'CCTV Evidence Review',
-      title: '3 Commercial Locations Footage Audit',
-      assignedTo: 'SI Naveen',
-      officerRole: 'Sub-Inspector',
-      category: 'Evidence',
-      dueDate: '17 Jul 2026 04:00 PM',
-      status: 'Under Review',
-      complianceScore: 85,
-      priority: 'Medium',
-      checklist: [
-        { step: 'Section 61 BSA Hash Certificate Verified', status: 'completed' },
-        { step: 'CCTV Timeline Alignment across 3 Cameras', status: 'completed' },
-        { step: 'Forensic Lab Video Enhancement Requisition', status: 'pending' }
-      ]
-    },
-    {
-      id: 'ASG-103',
-      caseNo: 'Fingerprint Analysis',
-      title: 'Suspect: Suresh Kumar (Latent Print Match)',
-      assignedTo: 'ASI Ramesh',
-      officerRole: 'Assistant Sub-Inspector',
-      category: 'Forensic',
-      dueDate: '17 Jul 2026 11:30 AM',
-      status: 'On Time',
-      complianceScore: 92,
-      priority: 'High',
-      checklist: [
-        { step: 'State FSL Fingerprint Match Certificate Received', status: 'completed' },
-        { step: 'IO Verification Memo signed', status: 'completed' },
-        { step: 'AFIS Database Cross-Check', status: 'completed' }
-      ]
-    },
-    {
-      id: 'ASG-104',
-      caseNo: 'Witness Statements',
-      title: 'Complainant Harish K. & Spot Witnesses',
-      assignedTo: 'HC Kavya',
-      officerRole: 'Head Constable',
-      category: 'Investigation',
-      dueDate: '19 Jul 2026 12:00 PM',
-      status: 'On Time',
-      complianceScore: 90,
-      priority: 'Medium',
-      checklist: [
-        { step: 'Statement Recorded under Sec 180 BNSS', status: 'completed' },
-        { step: 'Audio Recording Encrypted & Uploaded', status: 'completed' }
-      ]
-    },
-    {
-      id: 'ASG-105',
-      caseNo: 'Vehicle Verification',
-      title: 'Registration KA03MN4481 White Innova Audit',
-      assignedTo: 'SI Naveen',
-      officerRole: 'Sub-Inspector',
-      category: 'Verification',
-      dueDate: '18 Jul 2026 03:00 PM',
-      status: 'On Time',
-      complianceScore: 88,
-      priority: 'Low',
-      checklist: [
-        { step: 'RTO Registration Certificate Validation', status: 'completed' },
-        { step: 'Chassis Number Physical Inspection Sheet', status: 'completed' }
-      ]
-    },
-    {
-      id: 'ASG-106',
-      caseNo: 'FIR KRP/2026/0448',
-      title: 'Cyber Fraud Online Banking Heist',
-      assignedTo: 'ASI Ramesh',
-      officerRole: 'Assistant Sub-Inspector',
-      category: 'Legal',
-      dueDate: '20 Jul 2026 11:00 AM',
-      status: 'On Time',
-      complianceScore: 95,
-      priority: 'Critical',
-      checklist: [
-        { step: 'Bank Account Freeze Requisition under Sec 106 BNSS', status: 'completed' },
-        { step: 'MHA Cyber Crime Portal Incident Linked', status: 'completed' },
-        { step: 'Form 173 Final Legal Audit', status: 'pending' }
-      ]
-    }
-  ]);
+  // We moved buildAssignments outside the component
+
+  // INITIAL STATE DATA — seeded from real KSP dataset
+  const [assignments, setAssignments] = React.useState<CaseAssignment[]>(() => buildAssignments(activeCase, availableCases));
+
+  React.useEffect(() => {
+    setAssignments(buildAssignments(activeCase, availableCases));
+  }, [activeCase, availableCases]);
 
   // OFFICER PERFORMANCE LIST
   const [officers] = useState<OfficerPerformance[]>([

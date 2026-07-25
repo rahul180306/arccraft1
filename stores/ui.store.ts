@@ -13,6 +13,7 @@ export interface UIState {
   copilotInitialPrompt: string;
   isContinueModalOpen: boolean;
   isDockExpanded: boolean;
+  isFIRSwitcherOpen: boolean;
 
   // Toast
   toastMsg: string | null;
@@ -28,6 +29,8 @@ export interface UIState {
   closeCopilot: () => void;
   setContinueModalOpen: (open: boolean) => void;
   setDockExpanded: (expanded: boolean) => void;
+  openFIRSwitcher: () => void;
+  closeFIRSwitcher: () => void;
   showToast: (msg: string) => void;
 }
 
@@ -44,6 +47,7 @@ export const useUIStore = create<UIState>((set) => ({
   copilotInitialPrompt: '',
   isContinueModalOpen: false,
   isDockExpanded: false,
+  isFIRSwitcherOpen: false,
 
   toastMsg: null,
 
@@ -60,6 +64,8 @@ export const useUIStore = create<UIState>((set) => ({
   
   setContinueModalOpen: (open) => set({ isContinueModalOpen: open }),
   setDockExpanded: (expanded) => set({ isDockExpanded: expanded }),
+  openFIRSwitcher: () => set({ isFIRSwitcherOpen: true }),
+  closeFIRSwitcher: () => set({ isFIRSwitcherOpen: false }),
 
   showToast: (msg) => {
     if (toastTimer) clearTimeout(toastTimer);

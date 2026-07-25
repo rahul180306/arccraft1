@@ -41,6 +41,8 @@ import {
 } from 'lucide-react';
 
 import { useUIStore } from '@/lib/stores/uiStore';
+import { useInvestigationStore } from '@/lib/stores/investigationStore';
+import { type KSPCase } from '@/lib/data/realCases';
 import GoogleDocsPanel from '@/components/workspace/GoogleDocsPanel';
 import GoogleSheetsPanel from '@/components/workspace/GoogleSheetsPanel';
 import GmailPanel from '@/components/workspace/GmailPanel';
@@ -70,10 +72,150 @@ export interface KBArticle {
   complianceChecklist?: string[];
 }
 
+const buildArticles = (activeCase: KSPCase, availableCases: KSPCase[]): KBArticle[] => [
+  {
+    id: 'kb-1',
+    title: `${activeCase.sections.join(' / ')} Comparison & Charging Guidelines`,
+    category: 'BNS_IPC',
+    actName: 'Bharatiya Nyaya Sanhita 2023',
+    sectionCode: activeCase.sections[0] || 'BNS',
+    oldIpcEquivalent: 'IPC Equivalents',
+    summary: 'Detailed statutory provisions of theft under BNS 2023 including enhanced provisions for snatching (BNS 304) and repeat offender bail grounds.',
+    fullContent: `UNDER BHARATIYA NYAYA SANHITA (BNS) 2023:
+- BNS 303(1): Definition of Theft. Whoever, intending to take dishonestly any movable property out of the possession of any person without that person's consent, moves that property in order to such taking.
+- BNS 303(2): Punishment for theft - imprisonment up to 3 years, or with fine, or both. For second or subsequent conviction, imprisonment shall not be less than 1 year and may extend to 5 years.
+- BNS 304: Snatching (NEW DISTINCT OFFENCE). When theft is committed by sudden or quick or forcible seizure of property from person. Non-bailable, punishable up to 3 years.
+
+PROCEDURAL COMPLIANCE UNDER BNSS 2023:
+1. Ensure e-FIR or physical FIR registers exact time and GPS location of snatching/theft.
+2. Property Seizure Memo (Panchanama) to be digitally certified under BSA Section 61 (formerly Indian Evidence Act Sec 65B).
+3. First Information Report copy to be transmitted to Judicial Magistrate within 24 hours via CCTNS / e-Courts portal.`,
+    author: 'KSP Legal Cell & DG-IGP Office',
+    updatedDate: '10 Jul 2025',
+    tags: ['BNS 303', 'Theft', 'BNS 304', 'Snatching', 'IPC 378', 'Panchanama'],
+    isBookmarked: true,
+    cognizable: 'COGNIZABLE',
+    bailable: 'NON-BAILABLE',
+    punishment: 'Imprisonment up to 3 years + Fine'
+  },
+  {
+    id: 'kb-2',
+    title: 'Crime Scene Preservation & Digital Evidence Seizure Protocol (BNSS 105 & BSA 61)',
+    category: 'SOP',
+    actName: 'BNSS 2023 & BSA 2023',
+    sectionCode: 'SOP-014/KSP',
+    summary: 'Mandatory standard procedures for securing physical crime scenes, collecting fingerprints, and seizing digital devices with Hash Value verification.',
+    fullContent: `MANDATORY CRIME SCENE PROCEDURES FOR INVESTIGATING OFFICERS (IOs):
+1. CRIME SCENE CORDONING: Secure perimeter using yellow police tape immediately upon arrival. Limit access exclusively to Scientific Officer / FSL team.
+2. PHOTOGRAPHY & VIDEOGRAPHY (BNSS SEC 105): Search and seizure MUST be audio-video recorded using official tablet/smartphone camera via KSP e-Evidence App.
+3. DIGITAL EVIDENCE HANDLING:
+   - Mobile phones: Immediately place in Faraday Isolation Shield Bag or switch to Airplane Mode. Do NOT attempt passcode guessing.
+   - Laptops/Hard Drives: Record exact timestamp, system time difference, and MAC address. Generate SHA-256 Hash checksum prior to sealing.
+4. CHAIN OF CUSTODY LOG: Fill Form KSP-404 detailing Officer Name, Date, Time, and Evidence Locker Seal ID.`,
+    author: 'FSL Bengaluru & KSP Technical Bureau',
+    updatedDate: '01 Jun 2025',
+    tags: ['Crime Scene', 'Digital Evidence', 'BSA Sec 61', 'FSL', 'Faraday Bag', 'Hash Value'],
+    isBookmarked: true,
+    complianceChecklist: [
+      'Cordon off crime scene with cordon tape',
+      'Enable audio-video recording under BNSS 105',
+      'Place mobile handsets in Faraday Shield Bag',
+      'Generate SHA-256 Hash value for storage drives',
+      'Complete Evidence Locker Chain of Custody Form'
+    ]
+  },
+  {
+    id: 'kb-3',
+    title: 'Cyber Crime 1930 Helpline & Financial Freeze Procedure for Bank Accounts',
+    category: 'CYBER_CRIME',
+    actName: 'IT Act 2000 / BNS 318(4)',
+    sectionCode: 'SOP-CYBER-09',
+    summary: 'Fast-track protocol for IOs to request immediate lien/freeze on beneficiary bank accounts via National Cyber Crime Reporting Portal (NCRP).',
+    fullContent: `STEPS FOR IMMEDIATE FINANCIAL FRAUD FREEZE:
+1. MANDATORY GOLDEN HOUR ACTION: If fraud reported within 24 hours, log in to NCRP / 1930 Financial Fraud Module.
+2. TRANSACTION ROUTING IDENTIFICATION: Extract UTR / RRN numbers from victim's bank statement.
+3. LIEN CREATION REQUISITION: Issue immediate notice under BNSS Sec 94 (formerly CrPC 91) to Nodal Officer of destination bank / payment gateway (PhonePe, GPay, Paytm).
+4. MAPPING MONEY TRAIL: Trace Layer-1 to Layer-3 mule accounts. Request freezing of suspect wallet balances.
+5. COURT RECLAIM (BNSS 503): File application before Magistrate for refund of frozen money to victim account under proper indemnity bond.`,
+    author: 'Cyber Crime CID Bengaluru',
+    updatedDate: '15 Jul 2025',
+    tags: ['1930 Helpline', 'Cyber Fraud', 'Bank Freeze', 'NCRP', 'UTRN', 'Mule Account'],
+    isBookmarked: false,
+    complianceChecklist: [
+      'Obtain victim bank statement & UTR numbers',
+      'Enter complaint on 1930 Portal within Golden Hour',
+      'Issue Sec 94 BNSS notice to Bank Nodal Officers',
+      'Freeze Layer-1 & Layer-2 beneficiary accounts',
+      'File refund application under BNSS Sec 503'
+    ]
+  },
+  {
+    id: 'kb-4',
+    title: 'Supreme Court Landmark Guidelines on Arrest: Arnesh Kumar vs State of Bihar & BNSS Sec 35',
+    category: 'CASE_LAW',
+    actName: 'BNSS 2023 Sec 35 / CrPC 41A',
+    sectionCode: '2014 (8) SCC 273',
+    summary: 'Mandatory prerequisites before making arrest in offences punishable with less than 7 years imprisonment. Notice of Appearance requirements.',
+    fullContent: `KEY RATIO & MANDATORY INSTRUCTIONS FOR POLICE OFFICERS:
+1. NO AUTOMATIC ARREST: Arrest should not be made automatically when a case under section punishable with imprisonment up to 7 years is registered.
+2. NOTICE OF APPEARANCE (BNSS SEC 35(3)): IO must serve Notice of Appearance within 14 days of FIR registration to suspect.
+3. CHECKLIST OF REASONS: If arrest becomes strictly necessary (e.g. risk of absconding or tampering with evidence), IO must record written reasons in police diary and present to Magistrate.
+4. MAGISTRATE SCRUTINY: Magistrates shall not authorize detention without recording satisfaction regarding necessity of arrest.
+5. PENALTY FOR NON-COMPLIANCE: Departmental proceedings and contempt of court proceedings against defaulting Police Officers.`,
+    author: 'Supreme Court of India / KSP Legal Manual',
+    updatedDate: '20 May 2025',
+    tags: ['Arnesh Kumar', 'Arrest Guidelines', 'BNSS Sec 35', 'Notice of Appearance', 'Bail'],
+    isBookmarked: true,
+    keyRatio: 'Arrest is not mandatory for offences punishable with up to 7 years imprisonment without recording strict statutory necessity.'
+  },
+  {
+    id: 'kb-5',
+    title: `${availableCases[2]?.crimeSubHead || 'Cyber Scam'} - Modus Operandi & Investigation Playbook`,
+    category: 'MODUS_OPERANDI',
+    actName: 'IT Act 2000 / BNS',
+    sectionCode: 'MO-GANG-088',
+    summary: `Deconstruction of cyber syndicate tactics related to ${availableCases[2]?.crimeSubHead || 'Cyber Crimes'}. Reference FIR ${availableCases[2]?.crimeNo || 'N/A'}.`,
+    fullContent: `MODUS OPERANDI BREAKDOWN:
+1. INITIAL CONTACT: Suspect approaches victim via digital channels.
+2. IMPERSONATION: Suspects impersonate officials or trusted entities.
+3. EXTORTION TRANSACTIONS: Victim coerced into transferring funds to mule accounts.
+
+INVESTIGATION ACTION POINTS:
+- Request IP logs and VOIP call origin details from Whatsapp / Microsoft Skype Legal Teams.
+- Track mule account withdrawal ATM locations.
+- Correlate phone numbers with National SIM Subscriber database (ASTR AI Portal).
+- Active Case Reference: ${availableCases[2]?.crimeNo || 'N/A'}`,
+    author: 'Karnataka Internal Security Division (ISD)',
+    updatedDate: '04 Jul 2025',
+    tags: ['Cyber Scam', 'Mule Account', 'VoIP Log', 'IT Act'],
+    isBookmarked: false
+  },
+  {
+    id: 'kb-6',
+    title: 'DG-IGP Circular: Zero FIR Registration & Jurisdiction Neutrality in Emergency Cases',
+    category: 'CIRCULAR',
+    actName: 'BNSS 2023 Sec 173(1)',
+    sectionCode: 'KSP-CIRCULAR-2025-09',
+    summary: 'Mandatory directive to register Zero FIR irrespective of territorial jurisdiction when cognizable crime is reported at any KSP station.',
+    fullContent: `CIRCULAR DIRECTIVE FROM OFFICE OF THE DG & IGP KARNATAKA:
+1. ZERO FIR MANDATE: Any victim or informant approaching a police station must be permitted to register an FIR immediately regardless of where the crime occurred.
+2. CCTNS ENTRY: Enter the FIR in CCTNS as "Zero FIR" (Numbering system: 0000/2025).
+3. IMMEDIATE INVESTIGATION: Initiate medical examination, crime scene preservation, or victim protection without waiting for territorial transfer.
+4. TRANSFER WITHIN 24 HOURS: Transmit physical file, digital logs, and evidence to jurisdictional police station via CCTNS transfer protocol.
+5. NON-COMPLIANCE ACTION: Refusal to register Zero FIR shall attract disciplinary action under Karnataka Police Act Section 20.`,
+    author: 'DG & IGP Office Bengaluru',
+    updatedDate: '12 Jan 2025',
+    tags: ['Zero FIR', 'BNSS 173', 'Jurisdiction', 'CCTNS', 'DG IGP Circular'],
+    isBookmarked: true
+  }
+];
+
 export default function KnowledgeBaseWorkspace() {
   const isDarkMode = useUIStore((s) => s.isDarkMode);
   const showToast = useUIStore((s) => s.showToast);
   const openCopilot = useUIStore((s) => s.openCopilot);
+  const activeCase = useInvestigationStore(s => s.activeCase)!;
+  const availableCases = useInvestigationStore(s => s.cases);
 
   // Main Active Tab
   const [activeTab, setActiveTab] = useState<'All Articles' | 'BNS vs IPC Laws' | 'SOPs & Manuals' | 'Case Law Precedents' | 'Modus Operandi'>('All Articles');
@@ -100,143 +242,15 @@ export default function KnowledgeBaseWorkspace() {
   const [newFullContent, setNewFullContent] = useState('');
 
   // Knowledge Base Master Data (KSP Law Enforcement Specific)
-  const [articles, setArticles] = useState<KBArticle[]>([
-    {
-      id: 'kb-1',
-      title: 'BNS Sec 303 (Theft) vs IPC Sec 378/379 Comparison & Charging Guidelines',
-      category: 'BNS_IPC',
-      actName: 'Bharatiya Nyaya Sanhita 2023',
-      sectionCode: 'BNS 303',
-      oldIpcEquivalent: 'IPC 378 / IPC 379',
-      summary: 'Detailed statutory provisions of theft under BNS 2023 including enhanced provisions for snatching (BNS 304) and repeat offender bail grounds.',
-      fullContent: `UNDER BHARATIYA NYAYA SANHITA (BNS) 2023:
-- BNS 303(1): Definition of Theft. Whoever, intending to take dishonestly any movable property out of the possession of any person without that person's consent, moves that property in order to such taking.
-- BNS 303(2): Punishment for theft - imprisonment up to 3 years, or with fine, or both. For second or subsequent conviction, imprisonment shall not be less than 1 year and may extend to 5 years.
-- BNS 304: Snatching (NEW DISTINCT OFFENCE). When theft is committed by sudden or quick or forcible seizure of property from person. Non-bailable, punishable up to 3 years.
+  // We moved buildArticles outside the component
 
-PROCEDURAL COMPLIANCE UNDER BNSS 2023:
-1. Ensure e-FIR or physical FIR registers exact time and GPS location of snatching/theft.
-2. Property Seizure Memo (Panchanama) to be digitally certified under BSA Section 61 (formerly Indian Evidence Act Sec 65B).
-3. First Information Report copy to be transmitted to Judicial Magistrate within 24 hours via CCTNS / e-Courts portal.`,
-      author: 'KSP Legal Cell & DG-IGP Office',
-      updatedDate: '10 Jul 2025',
-      tags: ['BNS 303', 'Theft', 'BNS 304', 'Snatching', 'IPC 378', 'Panchanama'],
-      isBookmarked: true,
-      cognizable: 'COGNIZABLE',
-      bailable: 'NON-BAILABLE',
-      punishment: 'Imprisonment up to 3 years + Fine'
-    },
-    {
-      id: 'kb-2',
-      title: 'Crime Scene Preservation & Digital Evidence Seizure Protocol (BNSS 105 & BSA 61)',
-      category: 'SOP',
-      actName: 'BNSS 2023 & BSA 2023',
-      sectionCode: 'SOP-014/KSP',
-      summary: 'Mandatory standard procedures for securing physical crime scenes, collecting fingerprints, and seizing digital devices with Hash Value verification.',
-      fullContent: `MANDATORY CRIME SCENE PROCEDURES FOR INVESTIGATING OFFICERS (IOs):
-1. CRIME SCENE CORDONING: Secure perimeter using yellow police tape immediately upon arrival. Limit access exclusively to Scientific Officer / FSL team.
-2. PHOTOGRAPHY & VIDEOGRAPHY (BNSS SEC 105): Search and seizure MUST be audio-video recorded using official tablet/smartphone camera via KSP e-Evidence App.
-3. DIGITAL EVIDENCE HANDLING:
-   - Mobile phones: Immediately place in Faraday Isolation Shield Bag or switch to Airplane Mode. Do NOT attempt passcode guessing.
-   - Laptops/Hard Drives: Record exact timestamp, system time difference, and MAC address. Generate SHA-256 Hash checksum prior to sealing.
-4. CHAIN OF CUSTODY LOG: Fill Form KSP-404 detailing Officer Name, Date, Time, and Evidence Locker Seal ID.`,
-      author: 'FSL Bengaluru & KSP Technical Bureau',
-      updatedDate: '01 Jun 2025',
-      tags: ['Crime Scene', 'Digital Evidence', 'BSA Sec 61', 'FSL', 'Faraday Bag', 'Hash Value'],
-      isBookmarked: true,
-      complianceChecklist: [
-        'Cordon off crime scene with cordon tape',
-        'Enable audio-video recording under BNSS 105',
-        'Place mobile handsets in Faraday Shield Bag',
-        'Generate SHA-256 Hash value for storage drives',
-        'Complete Evidence Locker Chain of Custody Form'
-      ]
-    },
-    {
-      id: 'kb-3',
-      title: 'Cyber Crime 1930 Helpline & Financial Freeze Procedure for Bank Accounts',
-      category: 'CYBER_CRIME',
-      actName: 'IT Act 2000 / BNS 318(4)',
-      sectionCode: 'SOP-CYBER-09',
-      summary: 'Fast-track protocol for IOs to request immediate lien/freeze on beneficiary bank accounts via National Cyber Crime Reporting Portal (NCRP).',
-      fullContent: `STEPS FOR IMMEDIATE FINANCIAL FRAUD FREEZE:
-1. MANDATORY GOLDEN HOUR ACTION: If fraud reported within 24 hours, log in to NCRP / 1930 Financial Fraud Module.
-2. TRANSACTION ROUTING IDENTIFICATION: Extract UTR / RRN numbers from victim's bank statement.
-3. LIEN CREATION REQUISITION: Issue immediate notice under BNSS Sec 94 (formerly CrPC 91) to Nodal Officer of destination bank / payment gateway (PhonePe, GPay, Paytm).
-4. MAPPING MONEY TRAIL: Trace Layer-1 to Layer-3 mule accounts. Request freezing of suspect wallet balances.
-5. COURT RECLAIM (BNSS 503): File application before Magistrate for refund of frozen money to victim account under proper indemnity bond.`,
-      author: 'Cyber Crime CID Bengaluru',
-      updatedDate: '15 Jul 2025',
-      tags: ['1930 Helpline', 'Cyber Fraud', 'Bank Freeze', 'NCRP', 'UTRN', 'Mule Account'],
-      isBookmarked: false,
-      complianceChecklist: [
-        'Obtain victim bank statement & UTR numbers',
-        'Enter complaint on 1930 Portal within Golden Hour',
-        'Issue Sec 94 BNSS notice to Bank Nodal Officers',
-        'Freeze Layer-1 & Layer-2 beneficiary accounts',
-        'File refund application under BNSS Sec 503'
-      ]
-    },
-    {
-      id: 'kb-4',
-      title: 'Supreme Court Landmark Guidelines on Arrest: Arnesh Kumar vs State of Bihar & BNSS Sec 35',
-      category: 'CASE_LAW',
-      actName: 'BNSS 2023 Sec 35 / CrPC 41A',
-      sectionCode: '2014 (8) SCC 273',
-      summary: 'Mandatory prerequisites before making arrest in offences punishable with less than 7 years imprisonment. Notice of Appearance requirements.',
-      fullContent: `KEY RATIO & MANDATORY INSTRUCTIONS FOR POLICE OFFICERS:
-1. NO AUTOMATIC ARREST: Arrest should not be made automatically when a case under section punishable with imprisonment up to 7 years is registered.
-2. NOTICE OF APPEARANCE (BNSS SEC 35(3)): IO must serve Notice of Appearance within 14 days of FIR registration to suspect.
-3. CHECKLIST OF REASONS: If arrest becomes strictly necessary (e.g. risk of absconding or tampering with evidence), IO must record written reasons in police diary and present to Magistrate.
-4. MAGISTRATE SCRUTINY: Magistrates shall not authorize detention without recording satisfaction regarding necessity of arrest.
-5. PENALTY FOR NON-COMPLIANCE: Departmental proceedings and contempt of court proceedings against defaulting Police Officers.`,
-      author: 'Supreme Court of India / KSP Legal Manual',
-      updatedDate: '20 May 2025',
-      tags: ['Arnesh Kumar', 'Arrest Guidelines', 'BNSS Sec 35', 'Notice of Appearance', 'Bail'],
-      isBookmarked: true,
-      keyRatio: 'Arrest is not mandatory for offences punishable with up to 7 years imprisonment without recording strict statutory necessity.'
-    },
-    {
-      id: 'kb-5',
-      title: 'Digital Arrest Cyber Scam - Modus Operandi & Investigation Playbook',
-      category: 'MODUS_OPERANDI',
-      actName: 'BNS 318(4) Cheating by Personation',
-      sectionCode: 'MO-GANG-088',
-      summary: 'Deconstruction of cyber syndicate tactics impersonating CBI/Customs/Police officials over Skype/WhatsApp video calls to extort money.',
-      fullContent: `MODUS OPERANDI BREAKDOWN:
-1. INITIAL CALL: Victim receives automated IVR claiming "Your FedEx package containing illegal drugs/passport was seized at Mumbai Airport".
-2. IMPERSONATION: Victim connected via Skype/WhatsApp to fraudsters dressed in fake police/CBI uniforms with realistic police station backdrops.
-3. PSYCHOLOGICAL COERCION: Fraudsters display forged Supreme Court arrest warrants and RBI freeze letters. Tell victim they are under "Digital Arrest".
-4. EXTORTION TRANSACTIONS: Victim coerced into transferring funds to "RBI Verification Escrow Accounts" (which are actually mule accounts managed by Chinese/Cambodian syndicates).
+  // Knowledge Base Master Data (KSP Law Enforcement Specific)
+  const [articles, setArticles] = useState<KBArticle[]>(() => buildArticles(activeCase, availableCases));
 
-INVESTIGATION ACTION POINTS:
-- Request IP logs and VOIP call origin details from Whatsapp / Microsoft Skype Legal Teams.
-- Track mule account withdrawal ATM locations in NCR / Mewat / Jamtara region.
-- Correlate phone numbers with National SIM Subscriber database (ASTR AI Portal).`,
-      author: 'Karnataka Internal Security Division (ISD)',
-      updatedDate: '04 Jul 2025',
-      tags: ['Digital Arrest', 'Cyber Scam', 'CBI Impersonation', 'Mule Account', 'VoIP Log'],
-      isBookmarked: false
-    },
-    {
-      id: 'kb-6',
-      title: 'DG-IGP Circular: Zero FIR Registration & Jurisdiction Neutrality in Emergency Cases',
-      category: 'CIRCULAR',
-      actName: 'BNSS 2023 Sec 173(1)',
-      sectionCode: 'KSP-CIRCULAR-2025-09',
-      summary: 'Mandatory directive to register Zero FIR irrespective of territorial jurisdiction when cognizable crime is reported at any KSP station.',
-      fullContent: `CIRCULAR DIRECTIVE FROM OFFICE OF THE DG & IGP KARNATAKA:
-1. ZERO FIR MANDATE: Any victim or informant approaching a police station must be permitted to register an FIR immediately regardless of where the crime occurred.
-2. CCTNS ENTRY: Enter the FIR in CCTNS as "Zero FIR" (Numbering system: 0000/2025).
-3. IMMEDIATE INVESTIGATION: Initiate medical examination, crime scene preservation, or victim protection without waiting for territorial transfer.
-4. TRANSFER WITHIN 24 HOURS: Transmit physical file, digital logs, and evidence to jurisdictional police station via CCTNS transfer protocol.
-5. NON-COMPLIANCE ACTION: Refusal to register Zero FIR shall attract disciplinary action under Karnataka Police Act Section 20.`,
-      author: 'DG & IGP Office Bengaluru',
-      updatedDate: '12 Jan 2025',
-      tags: ['Zero FIR', 'BNSS 173', 'Jurisdiction', 'CCTNS', 'DG IGP Circular'],
-      isBookmarked: true
-    }
-  ]);
+  // Update articles on case change
+  React.useEffect(() => {
+    setArticles(buildArticles(activeCase, availableCases));
+  }, [activeCase, availableCases]);
 
   // Toggle Bookmark State
   const toggleBookmark = (id: string, e: React.MouseEvent) => {

@@ -14,9 +14,16 @@ import {
   Paperclip, 
   CheckCircle2,
   ArrowUpRight,
-  Download
+  Download,
+  ChevronDown,
+  Zap,
+  Brain,
+  Cpu
 } from 'lucide-react';
 import { exportToPDF } from '@/lib/pdfExport';
+import { useInvestigationStore } from '@/lib/stores/investigationStore';
+import { useDashboardMetrics } from '@/lib/stores/selectors';
+
 
 interface CopilotDrawerModalProps {
   isOpen: boolean;
@@ -38,16 +45,47 @@ export default function CopilotDrawerModal({ isOpen, onClose, initialPrompt }: C
   const [inputMsg, setInputMsg] = useState('');
   const [attachment, setAttachment] = useState<{data: string, mimeType: string, name: string} | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const metrics = useDashboardMetrics();
 
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      sender: 'assistant',
-      text: "### 🧠 ArcCraft AI Intelligence Copilot Active\nGood morning Inspector Arjun. I am ready to analyze active station FIRs and intelligence files.\n\n- **Current FIR Dataset**: FIR #KRP/2026/0456 (Anekal Main Road Commercial Burglary)\n- **Available Modules**: CCTNS Records, AFIS Fingerprint Scans, CCTV Surveillance Logs, BNS/BNSS Legal Codes.\n\nWhat investigation task or dataset query would you like to run today?",
-      time: '08:15 AM',
+  // ── Model selection: gemini-flash | gemini-pro | glm | kimi | minimax
+  const [selectedModel, setSelectedModel] = useState<'gemini-flash' | 'gemini-pro' | 'glm' | 'kimi' | 'minimax'>('gemini-flash');
+  const [showModelMenu, setShowModelMenu] = useState(false);
+
+  const MODEL_OPTIONS = [
+    { id: 'gemini-flash', label: 'Gemini 2.5 Flash', icon: '⚡', color: 'text-blue-400', desc: 'Fast, default' },
+    { id: 'gemini-pro', label: 'Gemini 2.5 Pro', icon: '🧠', color: 'text-purple-400', desc: 'Deep reasoning' },
+    { id: 'glm', label: 'GLM-5.2 (NVIDIA)', icon: '🔷', color: 'text-emerald-400', desc: 'NVIDIA fast' },
+    { id: 'kimi', label: 'Kimi K2.6 (NVIDIA)', icon: '🌙', color: 'text-orange-400', desc: '128K context' },
+    { id: 'minimax', label: 'Minimax-M3 (NVIDIA)', icon: '🟣', color: 'text-pink-400', desc: 'Structured analysis' },
+  ] as const;
+
+  const currentModel = MODEL_OPTIONS.find(m => m.id === selectedModel) || MODEL_OPTIONS[0];
+
+  const activeCase = useInvestigationStore(s => s.activeCase);
+
+  // Guard: this modal is only rendered after Dashboard2 confirms data is loaded
+  if (!activeCase) return null;
+
+  // Derive greeting memoized
+  const greeting = React.useMemo(() => {
+    return {
+      sender: 'assistant' as const,
+      systemPrompt: `You are an advanced police intelligence AI. You speak in a highly professional, clinical tone. Analyze intelligence and map facts back to the BNS (Bharatiya Nyaya Sanhita). Current active case context: FIR ${activeCase.crimeNo} (${activeCase.crimeHead} - ${activeCase.crimeSubHead}) in ${activeCase.district}. Status: ${activeCase.caseStatus}. IO: ${activeCase.ioName}.`,
+      text: `### 🧠 ArcCraft AI Intelligence Copilot Active\nNamaste Inspector ${activeCase.ioName}. I have access to the **KSP CCTNS database with ${metrics.totalFIRs.toLocaleString()} real FIRs**.\n\n- **Active Case**: FIR \`${activeCase.crimeNo}\` — ${activeCase.crimeSubHead}, ${activeCase.policeStation}\n- **Accused**: ${activeCase.accused.map(a=>a.name).join(', ')}\n- **Status**: ${activeCase.caseStatus} | **District**: ${activeCase.district}\n- **Crime Stats**: ${metrics.underInvestigation} Under Investigation · ${metrics.pendingTrial} Pending Trial · ${metrics.convicted} Convicted\n\nWhat investigation task, legal query, or intelligence analysis would you like to run today?`,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       confidence: 98,
-      sources: ["CCTNS Karnataka", "FIR #KRP/2026/0456", "AFIS DB"]
-    }
-  ]);
+      sources: [`FIR ${activeCase.crimeNo}`, "CCTNS Karnataka", "KSP AFIS DB", "BNS/BNSS Code"]
+    };
+  }, [activeCase, metrics]);
+
+  const [messages, setMessages] = useState<Message[]>([greeting]);
+
+  // Update greeting only if the active case changes (don't erase chat for unrelated updates)
+  useEffect(() => {
+    setMessages([greeting]);
+  }, [activeCase.crimeNo]);
+
+
   const [isTyping, setIsTyping] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = React.useRef<MediaRecorder | null>(null);
@@ -156,8 +194,11 @@ export default function CopilotDrawerModal({ isOpen, onClose, initialPrompt }: C
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           useSearch,
-          useThinking,
-          useFast,
+          useThinking: selectedModel === 'gemini-pro',
+          useFast: selectedModel === 'gemini-flash',
+          useNvidia: ['glm', 'kimi', 'minimax'].includes(selectedModel),
+          nvidiaModel: selectedModel,
+          systemPrompt: greeting.systemPrompt,
           messages: historyToSend
         })
       });
@@ -180,7 +221,7 @@ export default function CopilotDrawerModal({ isOpen, onClose, initialPrompt }: C
         text: '',
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         confidence: 96,
-        sources: ["FIR #KRP/2026/0456", "CCTNS Karnataka", "AFIS Sample #FP-492", "BNS / BNSS Code"]
+        sources: [`FIR ${activeCase.crimeNo}`, "CCTNS Karnataka", `Model: ${currentModel.label}`, "BNS / BNSS Code"]
       };
 
       setMessages(prev => [...prev, assistantMsg]);
@@ -289,11 +330,42 @@ export default function CopilotDrawerModal({ isOpen, onClose, initialPrompt }: C
             </div>
             <div>
               <h2 className="text-base font-extrabold tracking-tight">ArcCraft AI Copilot</h2>
-              <p className="text-[10px] text-gray-400 font-medium">Karnataka Police Intelligence & Legal Assistant</p>
+              <p className="text-[10px] text-gray-400 font-medium">Karnataka Police Intelligence — {metrics.totalFIRs.toLocaleString()} Real FIRs in CCTNS</p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Model Selector */}
+            <div className="relative">
+              <button
+                onClick={() => setShowModelMenu(!showModelMenu)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-xs font-bold transition-colors cursor-pointer border border-gray-700"
+              >
+                <span>{currentModel.icon}</span>
+                <span className="text-gray-200">{currentModel.id === 'gemini-flash' ? 'Flash' : currentModel.id === 'gemini-pro' ? 'Pro' : currentModel.label.split(' ')[0]}</span>
+                <ChevronDown size={11} className="text-gray-400" />
+              </button>
+              {showModelMenu && (
+                <div className="absolute right-0 top-full mt-1.5 w-52 bg-[#1a1a2e] border border-gray-700 rounded-2xl shadow-2xl z-50 overflow-hidden">
+                  {MODEL_OPTIONS.map(m => (
+                    <button
+                      key={m.id}
+                      onClick={() => { setSelectedModel(m.id as any); setShowModelMenu(false); }}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-gray-700/50 transition-colors cursor-pointer ${
+                        selectedModel === m.id ? 'bg-gray-700/30' : ''
+                      }`}
+                    >
+                      <span className="text-base">{m.icon}</span>
+                      <div>
+                        <div className={`text-xs font-bold ${m.color}`}>{m.label}</div>
+                        <div className="text-[9px] text-gray-500">{m.desc}</div>
+                      </div>
+                      {selectedModel === m.id && <CheckCircle2 size={12} className="ml-auto text-emerald-400" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <button 
               onClick={() => {
                 const chatHistory = messages.map(m => `[${m.time}] ${m.sender.toUpperCase()}:\n${m.text}`).join('\n\n---\n\n');

@@ -24,8 +24,10 @@ import VoiceAssistantModal from './VoiceAssistantModal';
 import CopilotDrawerModal from './CopilotDrawerModal';
 import ContinueInvestigationModal from './ContinueInvestigationModal';
 import GlobalInvestigationDock from './GlobalInvestigationDock';
+import FIRSwitcherModal from './FIRSwitcherModal';
 
 import { useUIStore } from '@/lib/stores/uiStore';
+import { useInvestigationStore } from '@/lib/stores/investigationStore';
 
 export default function Dashboard2() {
   const isDarkMode = useUIStore((s) => s.isDarkMode);
@@ -33,6 +35,29 @@ export default function Dashboard2() {
   const setActiveTab = useUIStore((s) => s.setActiveTab);
   const toastMsg = useUIStore((s) => s.toastMsg);
   const showToast = useUIStore((s) => s.showToast);
+
+  const isFIRSwitcherOpen = useUIStore((s) => s.isFIRSwitcherOpen);
+  const closeFIRSwitcher = useUIStore((s) => s.closeFIRSwitcher);
+
+  // ESC key closes any open modal
+  React.useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (isFIRSwitcherOpen) closeFIRSwitcher();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [isFIRSwitcherOpen, closeFIRSwitcher]);
+
+  const isLoading = useInvestigationStore((s) => s.isLoading);
+  const loadError = useInvestigationStore((s) => s.loadError);
+  const casesLoaded = useInvestigationStore((s) => s.cases.length > 0);
+  const fetchDataset = useInvestigationStore((s) => s.fetchDataset);
+
+  React.useEffect(() => {
+    fetchDataset();
+  }, [fetchDataset]);
 
   const isCommandPaletteOpen = useUIStore((s) => s.isCommandPaletteOpen);
   const setCommandPaletteOpen = useUIStore((s) => s.setCommandPaletteOpen);
@@ -65,6 +90,39 @@ export default function Dashboard2() {
       showToast('Navigated to Link Analysis Graph');
     }
   };
+
+  // Show loading screen while KSP dataset is being parsed from Excel
+  if (isLoading || !casesLoaded) {
+    return (
+      <div className="min-h-screen bg-[#0A0A0B] flex flex-col items-center justify-center gap-6 select-none">
+        <div className="relative">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#FF5A1F] to-[#FF8C00] flex items-center justify-center shadow-2xl shadow-[#FF5A1F]/30">
+            <Sparkles size={28} className="text-white animate-pulse" />
+          </div>
+          <div className="absolute -inset-1 rounded-2xl border border-[#FF5A1F]/20 animate-ping" />
+        </div>
+        <div className="text-center">
+          <p className="text-white text-xl font-bold tracking-tight font-mono">
+            Loading KSP CCTNS Database
+          </p>
+          <p className="text-[#FF5A1F]/70 text-sm mt-1 font-mono">
+            Parsing 1,079 FIRs from <span className="text-[#FF5A1F]">Police_FIR_Combined_Dataset_Final.xlsx</span>
+          </p>
+        </div>
+        <div className="flex gap-1">
+          {[0,1,2,3].map(i => (
+            <div key={i} className="w-2 h-2 rounded-full bg-[#FF5A1F]" style={{animation: `bounce 1s ease-in-out ${i * 0.15}s infinite`}} />
+          ))}
+        </div>
+        {loadError && (
+          <div className="mt-4 max-w-sm text-center bg-red-950/30 border border-red-800/40 rounded-xl p-4">
+            <p className="text-red-400 text-sm font-mono">⚠ {loadError}</p>
+            <p className="text-red-300/60 text-xs mt-1">Ensure Python 3 is available and the dataset file exists.</p>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (activeTab === 'Landing' || activeTab === 'Landing Page') {
     return (
@@ -181,6 +239,11 @@ export default function Dashboard2() {
           onClose={() => setContinueModalOpen(false)}
           onShowToast={showToast}
         />
+
+        {/* FIR SWITCHER MODAL */}
+        <AnimatePresence>
+          {isFIRSwitcherOpen && <FIRSwitcherModal />}
+        </AnimatePresence>
 
       </div>
     </>

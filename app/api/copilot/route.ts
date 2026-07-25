@@ -1,10 +1,117 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
 
+// ── Real KSP Dataset Summary (from Police_FIR_Combined_Dataset_Final.xlsx) ────
+const KSP_DATASET_CONTEXT = `
+═══════════════════════════════════════════════════
+KARNATAKA STATE POLICE — CCTNS LIVE CRIME DATABASE
+═══════════════════════════════════════════════════
+DATASET: Police_FIR_Combined_Dataset_Final.xlsx
+TOTAL FIRs IN SYSTEM: 1,079
+
+CASE STATUS BREAKDOWN:
+- Pending Trial: 477 cases
+- Convicted: 220 cases
+- BoundOver: 103 cases
+- Dis/Acq: 40 | False Case: 40 | Undetected: 38
+- Abated: 25 | Compounded: 28 | Traced: 35
+- Charge Sheeted: 18 | Closed: 13 | Acquitted: 17
+- Under Investigation: 10 | Un Traced: 7
+
+CRIME HEAD BREAKDOWN:
+- Special, Local & Procedural Laws: 513 (47.5%)
+- Traffic & Motor Vehicle Offences: 220 (20.4%)
+- Crimes Against Body (Murder/Attempt): 83 (7.7%)
+- Crimes Against Women (Molestation/Dowry): 80 (7.4%)
+- Crimes Against Children (POCSO): 67 (6.2%)
+- Crimes Against Property (Theft/Burglary): 57 (5.3%)
+- Economic Offences (Cheating/CBT): 23 (2.1%)
+- Crimes Against Public Order (Rioting): 16 (1.5%)
+- Special & Local Laws Offences: 11 (1.0%)
+- Cyber Crimes (Fraud/Online Harassment): 9 (0.8%)
+
+DISTRICTS COVERED: Bagalkot (999+), Dakshina Kannada (21), Tumakuru (11), Bengaluru Urban (11), Vijayapura (10), Kalaburagi (9), Shivamogga (9), Davanagere (5) and 13 others
+
+KEY ACTS IN DATABASE: IPC (Indian Penal Code), NDPS Act, POCSO Act, IT Act (Sec 66/67), Arms Act, Motor Vehicles Act, POCA, Karnataka Excise Act, PCMA, MMDR Act
+
+SAMPLE ACTIVE FIRs:
+1. FIR 800010005202600001 — Murder (IPC 302) | Yeshwanthpur PS, Bengaluru Urban | Accused: Raju Murthy (18M), Anitha Achar (36F) | Victim: Anil Pillai (60M) | Charge Sheeted | IO: Ramesh (KGID100003)
+2. FIR 800120015202500001 — Theft | KR Puram PS | Accused: Sowmya Naik (44F) | Charge Sheeted
+3. FIR 100090013202600001 — POCSO Offence | Bengaluru Urban | Pending Trial
+4. FIR 300100003202500001 — Cheating/Economic Offence | Davanagere | Under Investigation
+5. FIR 100070019202400001 — Cyber Fraud (IT Act Sec 66) | Shivamogga | Acquitted
+
+APPLICABLE SECTIONS ACROSS DATABASE:
+IPC: 302 (Murder), 307 (Attempt), 376 (Rape), 420 (Cheating), 354 (Molestation), 406 (CBT)
+POCSO: Sec 4 (Penetrative), Sec 6 (Aggravated)
+IT Act: Sec 66 (Cyber offences), Sec 67 (Obscene content)
+NDPS: Sec 20 (Cannabis), Sec 21 (Manufactured drugs)
+Arms Act: Sec 25 | MV Act: Sec 185 | ARMS: Sec 27
+
+POLICE STATIONS (Sample): Whitefield PS, Indiranagar PS, Jayanagar PS, Rajajinagar PS, Yeshwanthpur PS, Malleshwaram PS, Basavanagudi PS, KR Puram PS, Vijayanagar PS, Banashankari PS (510 total units)
+`;
+
+const SYSTEM_INSTRUCTION = `You are ArcCraft AI Copilot, the primary Law Enforcement Intelligence & Legal Copilot for Karnataka State Police (KSP CCTNS System).
+
+Your role is to act as an active, analytical, generative Copilot for Investigating Officers and Police Supervisors. You answer queries in **English** or **Kannada (ಕನ್ನಡ)** based on the language used by the officer.
+
+**CRITICAL RULE FOR GREETINGS**: If the user's input is a simple greeting (e.g., "Hi", "Hello", "ನಮಸ್ಕಾರ"), respond with a single professional sentence acknowledging the officer and asking how you can assist with KSP crime intelligence today.
+
+${KSP_DATASET_CONTEXT}
+
+**GENERATIVE COPILOT RESPONSE STRUCTURE**:
+Format your response into clean, highly scannable Markdown with these exact sections:
+
+### 🧠 Copilot Cognitive Assessment
+- **Intent**: [e.g. Criminal Network Link Analysis / Modus Operandi Profiling / Legal Code Guidance / Case Status Query]
+- **Urgency & Risk**: [CRITICAL | HIGH | MEDIUM | LOW]
+- **Language**: [English | Kannada (ಕನ್ನಡ)]
+- **Dataset Decision**: [Which FIRs, case IDs, or sections were referenced]
+
+### 📊 Case Intelligence & Correlation Engine
+- [Detailed findings cross-referencing the KSP database, with specific FIR numbers, crime heads, sections, and district data]
+
+### 🕸️ Criminal Network & Pattern Analysis
+- [Links between accused, locations, crime types, and patterns across the 1,079 cases]
+
+### ⚖️ Tactical & Legal Action Plan (IPC / POCSO / IT Act / NDPS)
+- [Step-by-step actionable advice under applicable Indian legal sections present in the CCTNS database]
+
+### 📈 Risk Assessment & Recommendations
+- [Predictive insights, case prioritization, and next investigative steps]
+
+Maintain a crisp, authoritative, precise law-enforcement tone. Always cite specific FIR numbers, crime categories, applicable sections, and real data from the KSP CCTNS database. Provide concrete, actionable intelligence.`;
+
 export async function POST(req: NextRequest) {
   try {
-    const { messages, useSearch, useThinking, useFast } = await req.json();
+    const { messages, useSearch, useThinking, useFast, useNvidia, nvidiaModel, systemPrompt: clientSystemPrompt } = await req.json();
 
+    const combinedSystemPrompt = clientSystemPrompt 
+      ? `${SYSTEM_INSTRUCTION}\n\n${clientSystemPrompt}`
+      : SYSTEM_INSTRUCTION;
+
+    // ── Route to NVIDIA if requested ──────────────────────────────────────────
+    if (useNvidia && nvidiaModel) {
+      const modelRoute = nvidiaModel === 'kimi' ? 'kimi' : nvidiaModel === 'minimax' ? 'minimax' : 'glm';
+      const nvidiaRes = await fetch(new URL(`/api/nvidia/${modelRoute}`, req.url), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages,
+          systemPrompt: combinedSystemPrompt,
+          stream: true
+        }),
+      });
+      return new Response(nvidiaRes.body, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        }
+      });
+    }
+
+    // ── Gemini route ──────────────────────────────────────────────────────────
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
@@ -26,7 +133,6 @@ export async function POST(req: NextRequest) {
     const hasAudio = messages.some((m: any) => m.fileMimeType && m.fileMimeType.startsWith('audio/'));
 
     // Determine model based on requested feature level
-    // Default to gemini-2.5-flash for primary copilot intelligence
     let model = "gemini-2.5-flash";
     if (useFast) {
       model = "gemini-2.5-flash-lite";
@@ -34,113 +140,8 @@ export async function POST(req: NextRequest) {
       model = "gemini-2.5-pro";
     }
 
-    const systemInstruction = `You are ArcCraft AI Copilot, the primary Law Enforcement Intelligence & Legal Copilot for Karnataka State Police (KSP CCTNS System).
-
-Your role is to act as an active, analytical, generative Copilot for Investigating Officer Inspector Arjun and Police Supervisors. You answer queries in **English** or **Kannada (ಕನ್ನಡ)** based on the language used by the officer.
-
-**CRITICAL RULE FOR GREETINGS**: If the user's input is a simple greeting (e.g., "Hi", "Hello", "ನಮಸ್ಕಾರ"), respond with a single professional sentence acknowledging the officer and asking how you can assist with KSP crime intelligence today.
-
-**KSP CRIME DATABASE CONTEXT (LIVE DATASETS)**:
-
-═══════════════════════════════════════
-CASE 1: FIR #104430006202600001 (Anekal PS, Bengaluru City)
-═══════════════════════════════════════
-- Date: 10 Feb 2026 02:14 AM | Category: Heinous Property Crime (Night Commercial Burglary)
-- Location: Lakshmi Jewelry Store, Anekal Main Road | Coords: (12.8087, 77.6961)
-- Complainant: Ramesh Kumar, Age 52, Jewelry Store Owner
-- Stolen: ₹45 Lakhs gold ornaments (22k, 18k) | MO: Gas cutter safe breach, stolen hatchback getaway
-- Sections: BNS Section 305 (Aggravated Theft), BNS Section 331 (Night House-trespass)
-- Status: Chargesheeted (CSID #501 on 01 Mar 2026 by IO Inspector Arjun, KGID KSP20180091)
-
-ACCUSED:
-- PersonID A1: Suresh K. (Alias "Chotte"), Age 34, Male, Unemployed, Jayanagar 4th Block
-  → HABITUAL OFFENDER | Risk Score: 92/100
-  → Prior: IPC 380 (2019), IPC 457 (2021), BNS 305 (2024)
-  → LINKED ACROSS BOTH CASES
-- PersonID A2: Manjunath V. (Alias "Chinna"), Age 28, Male, Auto Driver, Electronic City
-
-EVIDENCE:
-- EV-001: CCTV Exit Gate Camera #14, Frame 291 — Red Hatchback KA-03-MN-4481 at 02:14 AM (96% confidence)
-- EV-002: AFIS Latent Fingerprint #FP-01 from safe door — matched Suresh K. (94.2%)
-- EV-003: Gas cutter tool serial G-4421 recovered from suspect vehicle (99%)
-- EV-004: Witness #02 claims blue motorbike escape — OVERRULED by CCTV (74% confidence, contradicted)
-- EV-005: CDR analysis — suspect mobile at Anekal BTS tower at 02:14 AM (91%)
-
-FINANCIAL TRAIL:
-- TXN-001: ₹15L Cash → Unknown Hawala (suspicious)
-- TXN-002: ₹8L NEFT SBI-908122 → PNB-334567 (suspicious, linked to PersonID A1)
-
-WITNESSES:
-- WS-01: Venkatesh R. (Neighbor) — credibility 85% — heard metallic cutting sounds ~2 AM
-- WS-02: Lakshmi Devi (Adjacent shop) — credibility 58% — blue motorbike claim contradicted by CCTV
-
-═══════════════════════════════════════
-CASE 2: FIR #104440008202600002 (Devaraja PS, Mysuru City)
-═══════════════════════════════════════
-- Date: 18 Feb 2026 03:45 AM | Category: Cyber Crime & Financial Fraud (ATM SIM Swap)
-- Location: SBI ATM, Devaraja Mohalla, Mysuru | Coords: (12.3052, 76.6551)
-- Complainant: Priya Sharma, Age 29, Female, Software Engineer
-- Loss: ₹18.5 Lakhs (electronic fund transfer) | MO: SIM swap via social engineering of telecom employee
-- Sections: BNS Section 318 (Cheating), IT Act Section 66D (Identity Theft), IT Act Section 43
-- Status: Under Investigation (IO PSI Priya R., KGID KSP20210456)
-
-ACCUSED:
-- PersonID A1: Suresh K. (Same habitual offender linked to Case 1!)
-- PersonID A3: Imran Khan, Age 26, Male, Telecom Shop Employee, Sayyaji Rao Road, Mysuru (Risk: 75)
-
-EVIDENCE:
-- EV-101: SIM swap log from Airtel — unauthorized SIM replacement Feb 17 (98%)
-- EV-102: SBI Transaction — ₹18.5L from victim to mule account SBI-908122 (100%)
-- EV-103: ATM CCTV — PersonID A1 withdrawing ₹2L from SBI ATM (89%)
-- EV-104: WhatsApp chat between A1 and A3 discussing SIM swap plan (95%)
-
-FINANCIAL TRAIL:
-- TXN-101: ₹18.5L NEFT from SBI-445566 (Victim) → SBI-908122 (Mule)
-- TXN-102: ₹2L ATM withdrawal from SBI-908122 by PersonID A1
-- TXN-103: ₹1.5L UPI to 9900112233@ybl (linked to PersonID A3)
-
-═══════════════════════════════════════
-CRIMINAL NETWORK ANALYSIS
-═══════════════════════════════════════
-- Suresh K. (PersonID A1) is the CENTRAL NODE connecting both cases
-- Cross-district operation: Bengaluru (Anekal) ↔ Mysuru (Devaraja)
-- Modus Operandi shift: Physical burglary → Cyber fraud (escalation pattern)
-- Common financial node: SBI Mule Account #908122
-- Organized crime indicators: Multi-city operation, role specialization
-
-═══════════════════════════════════════
-SOCIO-DEMOGRAPHIC CONTEXT
-═══════════════════════════════════════
-- Anekal: Peri-urban area, rapid urbanization, jewelry store concentration
-- Crime time pattern: Both incidents between 02:00-04:00 AM (low surveillance window)
-- Accused profile: Age 26-34, male, mixed employment status
-- Economic indicators: High-value targets (₹45L + ₹18.5L = ₹63.5L total)
-
-**GENERATIVE COPILOT RESPONSE STRUCTURE**:
-Format your response into clean, highly scannable Markdown with these exact sections:
-
-### 🧠 Copilot Cognitive Assessment
-- **Intent**: [e.g. Criminal Network Link Analysis / Modus Operandi Profiling / Legal Code Guidance]
-- **Urgency & Risk**: [CRITICAL | HIGH | MEDIUM | LOW]
-- **Language**: [English | Kannada (ಕನ್ನಡ)]
-- **Dataset Decision**: [Which FIRs, PersonIDs, or Evidence IDs were retrieved]
-
-### 📊 Case Intelligence & Correlation Engine
-- [Detailed findings cross-referencing the database, with specific evidence IDs, confidence scores, and cross-case links]
-
-### 🕸️ Criminal Network & Pattern Analysis
-- [Links between accused, financial accounts, locations, and crime patterns]
-
-### ⚖️ Tactical & Legal Action Plan (BNS / BNSS / BSA)
-- [Step-by-step actionable advice under applicable Indian legal sections]
-
-### 📈 Risk Assessment & Recommendations
-- [Predictive insights, early warning indicators, and next investigative steps]
-
-Maintain a crisp, authoritative, precise law-enforcement tone. Always cite specific evidence IDs, confidence scores, and legal sections. Provide concrete, actionable intelligence.`;
-
     let config: any = {
-      systemInstruction,
+      systemInstruction: combinedSystemPrompt,
     };
 
     if (useSearch) {
@@ -165,11 +166,34 @@ Maintain a crisp, authoritative, precise law-enforcement tone. Always cite speci
       };
     });
 
-    const responseStream = await ai.models.generateContentStream({
-      model,
-      contents,
-      config,
-    });
+    let responseStream;
+    try {
+      responseStream = await ai.models.generateContentStream({
+        model,
+        contents,
+        config,
+      });
+    } catch (genError: any) {
+      console.error("Gemini API connection failed, using offline fallback:", genError);
+      // Provide an offline fallback stream
+      const stream = new ReadableStream({
+        async start(controller) {
+          const encoder = new TextEncoder();
+          const fallbackMsg = "### ⚠️ Offline Demonstration Mode\n\n*ArcCraft AI Copilot is currently running in offline fallback mode due to network unavailability. Below is a simulated response based on the KSP CCTNS dataset.*\n\n### 🧠 Copilot Cognitive Assessment\n- **Intent**: Criminal Network Link Analysis\n- **Urgency & Risk**: HIGH\n- **Language**: English\n- **Dataset Decision**: Cross-referencing 1,079 KSP FIRs — focusing on Crimes Against Body (83 cases) and Crimes Against Property (57 cases)\n\n### 📊 Case Intelligence & Correlation Engine\n- The KSP CCTNS database contains **1,079 FIRs** across Karnataka.\n- **477 cases** are currently Pending Trial — the largest backlog category.\n- **220 cases** have resulted in Convictions — a 20.4% conviction rate.\n- Bagalkot district has the highest concentration of recorded cases.\n\n### 🕸️ Criminal Network & Pattern Analysis\n- **Crimes Against Body** (Murder/Attempt) — 83 cases — predominantly in Bengaluru Urban and Dakshina Kannada.\n- **Crimes Against Women** — 80 cases — including Molestation (IPC 354) and Dowry Death.\n- **POCSO Offences** — 67 cases — crimes against children requiring expedited investigation.\n\n### ⚖️ Tactical & Legal Action Plan\n- For Pending Trial cases: Ensure all charge sheets are filed within BNSS timelines.\n- For POCSO cases (Sec 4/6): Special child-friendly courts apply. Victim testimony via video conference.\n- For Cyber Crimes (IT Act Sec 66/67): Issue preservation notices to platform providers within 48 hours.\n\n### 📈 Risk Assessment & Recommendations\n- **CRITICAL**: 10 cases currently Under Investigation require active IO follow-up within 7 days.\n- **HIGH PRIORITY**: 38 Undetected cases warrant fresh forensic review.\n- **RECOMMENDATION**: Cross-link Crimes Against Property (57 cases) with Motor Vehicle Act violations for repeat offender profiling.";
+          
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: fallbackMsg })}\n\n`));
+          controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
+          controller.close();
+        }
+      });
+      return new Response(stream, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          "Connection": "keep-alive",
+        },
+      });
+    }
 
     const encoder = new TextEncoder();
     
@@ -200,12 +224,21 @@ Maintain a crisp, authoritative, precise law-enforcement tone. Always cite speci
         "Connection": "keep-alive",
       },
     });
-  } catch (error: any) {
-    console.error("Error in copilot API:", error);
-    return NextResponse.json(
-      { error: error.message || "Internal server error" },
-      { status: 500 }
-    );
+  } catch (err: any) {
+    console.error("Gemini Copilot API Error:", err);
+    const fallbackMsg = "### ⚠️ ArcCraft Copilot Offline\n\nThe AI system encountered an error connecting to the intelligence models. Please verify your API keys or check network connectivity.\n\n" + (err.message || 'Unknown error');
+    
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: fallbackMsg })}\n\n`));
+        controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
+        controller.close();
+      }
+    });
+    
+    return new Response(stream, {
+      headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' }
+    });
   }
 }
-
