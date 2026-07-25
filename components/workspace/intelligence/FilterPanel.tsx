@@ -114,7 +114,7 @@ export default function FilterPanel({
     : '₹36,30,000';
 
   return (
-    <div className="absolute left-0 top-0 bottom-0 z-10 flex items-start">
+    <div className="relative h-full flex items-start shrink-0 z-10">
 
       {/* ── Panel Body ── */}
       <AnimatePresence initial={false}>

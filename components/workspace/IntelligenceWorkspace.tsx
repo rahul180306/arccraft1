@@ -499,8 +499,9 @@ export default function IntelligenceWorkspace() {
             />
           </div>
 
-          {/* Filter Panel (Collapsible left drawer controlling Plotly graph) */}
-          <div className="absolute left-0 top-[44px] bottom-0 z-10">
+          {/* Main Content Area: Filter Panel + Plotly Intelligence Graph */}
+          <div className="absolute inset-0 top-[44px] flex w-full h-[calc(100%-44px)] overflow-hidden">
+            {/* Filter Panel (Collapsible left drawer controlling Plotly graph) */}
             <FilterPanel
               isDarkMode={isDarkMode}
               activeFilters={plotlyActiveFilters}
@@ -508,18 +509,18 @@ export default function IntelligenceWorkspace() {
               activeCase={activeCase}
               categoryCounts={plotlyCategoryCounts}
             />
-          </div>
 
-          {/* Main Visualization Canvas Container: Plotly Intelligence Graph */}
-          <div className="absolute inset-0 top-[44px]">
-            <PlotlyCulpritAnalytics
-              isDarkMode={isDarkMode}
-              searchQuery={searchQuery}
-              activeFilters={plotlyActiveFilters}
-              onToggleFilter={handleTogglePlotlyFilter}
-              activeCase={activeCase}
-              onCategoryCountsChange={setPlotlyCategoryCounts}
-            />
+            {/* Main Visualization Canvas Container: Plotly Intelligence Graph */}
+            <div className="flex-1 h-full min-w-0 relative">
+              <PlotlyCulpritAnalytics
+                isDarkMode={isDarkMode}
+                searchQuery={searchQuery}
+                activeFilters={plotlyActiveFilters}
+                onToggleFilter={handleTogglePlotlyFilter}
+                activeCase={activeCase}
+                onCategoryCountsChange={setPlotlyCategoryCounts}
+              />
+            </div>
           </div>
 
           {/* Entity Details Panel (slides in from right on node click) */}

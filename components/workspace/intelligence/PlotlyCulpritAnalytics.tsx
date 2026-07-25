@@ -581,7 +581,7 @@ export default function PlotlyCulpritAnalytics({
               font: { color: textMain, family: 'Inter, system-ui, sans-serif', size: 10 },
               xaxis: {
                 showgrid: false, zeroline: false, showticklabels: false,
-                range: [-6.5, 6.5],
+                range: [-7.2, 7.2],
               },
               yaxis: {
                 showgrid: false, zeroline: false, showticklabels: false,
