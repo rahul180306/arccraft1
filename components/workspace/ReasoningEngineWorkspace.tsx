@@ -36,27 +36,6 @@ export default function ReasoningEngineWorkspace() {
   const isDarkMode = useUIStore((s) => s.isDarkMode);
   const showToast = useUIStore((s) => s.showToast);
 
-  const [chatEvents, setChatEvents] = useState<any[]>([]);
-  const [artifactMd, setArtifactMd] = useState<string>('');
-  const [isArtifactOpen, setIsArtifactOpen] = useState<boolean>(false);
-  const [isCopied, setIsCopied] = useState<boolean>(false);
-  const [isGeneratingAI, setIsGeneratingAI] = useState<boolean>(false);
-  const [isGeneratingBundle, setIsGeneratingBundle] = useState<boolean>(false);
-  const [isSimulatingSwarm, setIsSimulatingSwarm] = useState<boolean>(false);
-  const [userInput, setUserInput] = useState<string>('');
-  const [phases, setPhases] = useState<string[]>([]);
-  const [currentPhaseIndex, setCurrentPhaseIndex] = useState<number>(-1);
-  const [decisionRecord, setDecisionRecord] = useState<any>(null);
-
-  const [selectedEvidenceId, setSelectedEvidenceId] = useState<string | null>(null);
-
-  const chatEndRef = useRef<HTMLDivElement>(null);
-
-  // Auto-scroll chat to bottom
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatEvents]);
-
   const defaultArtifactMd = `# 🛡️ KARNATAKA STATE POLICE — OFFICIAL CASE DOSSIER
 **CCTNS Crime Analytics Engine | Confidential Law Enforcement Document**  
 *Document ID: KSP-DOC-2026-0456 | Status: Verified by Investigation Orchestrator*
@@ -200,15 +179,26 @@ Multi-agent reasoning by the **Investigation Orchestrator** has established the 
     }
   ];
 
-  const loadStreamData = async () => {
-    setChatEvents(defaultStream);
-    setDecisionRecord(defaultDecisionRecord);
-    setArtifactMd(defaultArtifactMd);
-  };
+  const [chatEvents, setChatEvents] = useState<any[]>(defaultStream);
+  const [artifactMd, setArtifactMd] = useState<string>(defaultArtifactMd);
+  const [isArtifactOpen, setIsArtifactOpen] = useState<boolean>(false);
+  const [isCopied, setIsCopied] = useState<boolean>(false);
+  const [isGeneratingAI, setIsGeneratingAI] = useState<boolean>(false);
+  const [isGeneratingBundle, setIsGeneratingBundle] = useState<boolean>(false);
+  const [isSimulatingSwarm, setIsSimulatingSwarm] = useState<boolean>(false);
+  const [userInput, setUserInput] = useState<string>('');
+  const [phases, setPhases] = useState<string[]>([]);
+  const [currentPhaseIndex, setCurrentPhaseIndex] = useState<number>(-1);
+  const [decisionRecord, setDecisionRecord] = useState<any>(defaultDecisionRecord);
 
+  const [selectedEvidenceId, setSelectedEvidenceId] = useState<string | null>(null);
+
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll chat to bottom
   useEffect(() => {
-    loadStreamData();
-  }, []);
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatEvents]);
 
   const generateAIReport = async () => {
     setIsGeneratingAI(true);
