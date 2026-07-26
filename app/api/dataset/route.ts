@@ -24,13 +24,10 @@ export async function GET() {
     const xlsxPath = path.join(rootDir, 'Police_FIR_Combined_Dataset_Final.xlsx');
     let needsExtract = !fs.existsSync(jsonPath);
 
-    if (!needsExtract) {
-      const xlsxStat = fs.statSync(xlsxPath);
-      const jsonStat = fs.statSync(jsonPath);
-      if (xlsxStat.mtime > jsonStat.mtime) {
-        needsExtract = true;
-      }
-    }
+    // We removed the mtime check because in production environments (like Catalyst),
+    // file modification times are not preserved by git clone, which causes this API
+    // to incorrectly attempt to run Python to parse the Excel file again.
+    // Instead, we just trust the committed ksp_dataset_extracted.json file.
 
     if (needsExtract) {
       const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
