@@ -52,12 +52,8 @@ export default function Dashboard2() {
 
   const isLoading = useInvestigationStore((s) => s.isLoading);
   const loadError = useInvestigationStore((s) => s.loadError);
+  // Data is bundled into the app at build time — always immediately available
   const casesLoaded = useInvestigationStore((s) => s.cases.length > 0);
-  const fetchDataset = useInvestigationStore((s) => s.fetchDataset);
-
-  React.useEffect(() => {
-    fetchDataset();
-  }, [fetchDataset]);
 
   const isCommandPaletteOpen = useUIStore((s) => s.isCommandPaletteOpen);
   const setCommandPaletteOpen = useUIStore((s) => s.setCommandPaletteOpen);
