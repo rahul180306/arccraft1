@@ -1,5 +1,6 @@
 import { StateCreator } from 'zustand';
 import { KSPCase } from '@/lib/data/realCases';
+import rawDataset from '@/ksp_dataset_extracted.json';
 
 export interface CaseSlice {
   activeCase: KSPCase | null;
@@ -9,6 +10,9 @@ export interface CaseSlice {
   setActiveCase: (crimeNo: string) => void;
   fetchDataset: () => Promise<void>;
 }
+
+// Pre-parse the bundled dataset at module load time
+const bundledCases: KSPCase[] = (rawDataset as any).allCases ?? (rawDataset as any).representativeCases ?? [];
 
 export const createCaseSlice: StateCreator<CaseSlice, [], [], CaseSlice> = (set, get) => ({
   activeCase: null,
@@ -31,15 +35,9 @@ export const createCaseSlice: StateCreator<CaseSlice, [], [], CaseSlice> = (set,
 
     set({ isLoading: true, loadError: null });
     try {
-      const res = await fetch('/data/ksp_dataset.json');
-      if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
-
-      const raw = await res.json();
-      const allCases: KSPCase[] = raw.allCases ?? raw.representativeCases ?? [];
-      const firstCase = allCases[0] ?? null;
-
+      const firstCase = bundledCases[0] ?? null;
       set({
-        cases: allCases,
+        cases: bundledCases,
         activeCase: firstCase,
         isLoading: false,
       });
