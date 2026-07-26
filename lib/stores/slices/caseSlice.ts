@@ -1,6 +1,5 @@
 import { StateCreator } from 'zustand';
 import { KSPCase } from '@/lib/data/realCases';
-import rawDataset from '@/ksp_dataset_extracted.json';
 
 export interface CaseSlice {
   activeCase: KSPCase | null;
@@ -10,10 +9,6 @@ export interface CaseSlice {
   setActiveCase: (crimeNo: string) => void;
   fetchDataset: () => Promise<void>;
 }
-
-// Pre-parse the bundled dataset at module load time
-const bundledCases: KSPCase[] = (rawDataset as any).allCases ?? (rawDataset as any).representativeCases ?? [];
-console.log(`[ArcCraft v5] Dataset bundled: ${bundledCases.length} cases loaded from embedded JSON`);
 
 export const createCaseSlice: StateCreator<CaseSlice, [], [], CaseSlice> = (set, get) => ({
   activeCase: null,
@@ -36,16 +31,30 @@ export const createCaseSlice: StateCreator<CaseSlice, [], [], CaseSlice> = (set,
 
     set({ isLoading: true, loadError: null });
     try {
-      if (bundledCases.length === 0) {
-        throw new Error('Bundled dataset is empty. Build may have failed to include ksp_dataset_extracted.json.');
+      // Fetch from the statically pre-rendered API route.
+      // At build time, Next.js calls the route handler and saves the JSON response.
+      // At runtime, Catalyst serves the pre-built static JSON file (no serverless function).
+      const res = await fetch('/api/dataset');
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`HTTP ${res.status}: ${text || 'Failed to load dataset'}`);
       }
-      const firstCase = bundledCases[0] ?? null;
+
+      const data = await res.json();
+      const allCases: KSPCase[] = data.allCases ?? data.representativeCases ?? [];
+      
+      if (allCases.length === 0) {
+        throw new Error('Dataset loaded but contains no cases.');
+      }
+
+      const firstCase = allCases[0] ?? null;
       set({
-        cases: bundledCases,
+        cases: allCases,
         activeCase: firstCase,
         isLoading: false,
       });
     } catch (err: any) {
+      console.error('[ArcCraft] Dataset load error:', err);
       set({ isLoading: false, loadError: err.message });
     }
   }
