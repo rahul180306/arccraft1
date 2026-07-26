@@ -13,6 +13,7 @@ export interface CaseSlice {
 
 // Pre-parse the bundled dataset at module load time
 const bundledCases: KSPCase[] = (rawDataset as any).allCases ?? (rawDataset as any).representativeCases ?? [];
+console.log(`[ArcCraft v5] Dataset bundled: ${bundledCases.length} cases loaded from embedded JSON`);
 
 export const createCaseSlice: StateCreator<CaseSlice, [], [], CaseSlice> = (set, get) => ({
   activeCase: null,
@@ -35,6 +36,9 @@ export const createCaseSlice: StateCreator<CaseSlice, [], [], CaseSlice> = (set,
 
     set({ isLoading: true, loadError: null });
     try {
+      if (bundledCases.length === 0) {
+        throw new Error('Bundled dataset is empty. Build may have failed to include ksp_dataset_extracted.json.');
+      }
       const firstCase = bundledCases[0] ?? null;
       set({
         cases: bundledCases,
