@@ -155,4 +155,4 @@ This project is private and proprietary. All rights reserved © 2026 Rahul.
 
 ---
 
-<p align="center">Built with ❤️ using Next.js, and modern web technologies</p>
+<p align="center">Built with ❤️ using Next.js and modern web technologies</p>
