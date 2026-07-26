@@ -31,11 +31,11 @@ export const createCaseSlice: StateCreator<CaseSlice, [], [], CaseSlice> = (set,
 
     set({ isLoading: true, loadError: null });
     try {
-      const res = await fetch('/api/dataset');
+      const res = await fetch('/data/ksp_dataset.json');
       if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
 
-      const data = await res.json();
-      const allCases: KSPCase[] = data.allCases ?? [];
+      const raw = await res.json();
+      const allCases: KSPCase[] = raw.allCases ?? raw.representativeCases ?? [];
       const firstCase = allCases[0] ?? null;
 
       set({
