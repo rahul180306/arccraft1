@@ -122,7 +122,7 @@ export default function InvestigationsWorkspace() {
     async function fetchCaseData() {
       setIsFetching(true);
       try {
-        const res = await fetch(`http://localhost:8000/api/v1/investigation/${activeCaseId}/details`);
+        const res = await fetch(`/api/v1/investigation/${activeCaseId}/details`);
         if (res.ok) {
           const data = await res.json();
           setInvestigationData(data);

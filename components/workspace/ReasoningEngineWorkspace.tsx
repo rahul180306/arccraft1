@@ -197,7 +197,7 @@ export default function ReasoningEngineWorkspace() {
     showToast('🧠 Investigation Orchestrator analyzing query...');
 
     try {
-      const res = await fetch('http://localhost:8000/api/v1/warroom/analyze', {
+      const res = await fetch('/api/v1/warroom/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: query, caseData: activeCase })
