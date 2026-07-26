@@ -1,4 +1,4 @@
-# 🧠 ArcCraft — AI Studio Applet
+# 🧠 # ArcCraft — AI Investigation Operating System for Law Enforcement
 
 > A full-stack AI-powered studio platform built with **Next.js 15**, **React 19**, and **Google Gemini** — featuring document editing, interactive maps, graph visualization, data analytics, and more.
 
